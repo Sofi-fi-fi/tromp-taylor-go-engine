@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GoEngine.Core\GoEngine.Core.csproj" />
+  </ItemGroup>
+
+</Project>

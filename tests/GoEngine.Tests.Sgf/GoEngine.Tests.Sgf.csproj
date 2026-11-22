@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GoEngine.Sgf\GoEngine.Sgf.csproj" />
+    <ProjectReference Include="..\..\src\GoEngine.Reference\GoEngine.Reference.csproj" />
+  </ItemGroup>
+
+</Project>

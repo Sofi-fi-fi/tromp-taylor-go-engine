@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GoEngine.Core/GoEngine.Core.csproj" />
+    <Project Path="src/GoEngine.Gtp/GoEngine.Gtp.csproj" />
+    <Project Path="src/GoEngine.Reference/GoEngine.Reference.csproj" />
+    <Project Path="src/GoEngine.Sgf/GoEngine.Sgf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GoEngine.Tests.Gtp/GoEngine.Tests.Gtp.csproj" />
+    <Project Path="tests/GoEngine.Tests.Sgf/GoEngine.Tests.Sgf.csproj" />
+    <Project Path="tests/GoEngine.Tests/GoEngine.Tests.csproj" />
+  </Folder>
+</Solution>
