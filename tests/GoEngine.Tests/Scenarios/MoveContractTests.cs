@@ -1,0 +1,495 @@
+using GoEngine.Core;
+using GoEngine.Tests.Support;
+using Xunit;
+
+namespace GoEngine.Tests.Scenarios;
+
+public abstract class MoveContractTests
+{
+    protected abstract IGoEngine CreateEngine(RuleSet rules);
+
+    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
+
+    private IGoEngine Load(params string[] rows)
+    {
+        return Load(allowSuicide: false, rows);
+    }
+
+    private IGoEngine LoadAllowingSuicide(params string[] rows)
+    {
+        return Load(allowSuicide: true, rows);
+    }
+
+    private IGoEngine Load(bool allowSuicide, string[] rows)
+    {
+        PositionSnapshot position = Diagram.Parse(rows);
+        return CreateEngine(RuleSet.CreateForTests(position.Size, allowSuicide: allowSuicide), position);
+    }
+
+    private static PositionSnapshot WithState(
+        PositionSnapshot board, int consecutivePasses, int blackStonesRemoved, int whiteStonesRemoved)
+    {
+        return new PositionSnapshot(
+            board.Size,
+            [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
+            board.ToMove,
+            consecutivePasses,
+            blackStonesRemoved,
+            whiteStonesRemoved);
+    }
+
+    private static void AssertBoard(PositionSnapshot actual, params string[] rows)
+    {
+        PositionSnapshot expected = Diagram.Parse(rows);
+        Assert.Equal(expected.Size, actual.Size);
+        for (int y = 0; y < expected.Size; y++)
+        {
+            for (int x = 0; x < expected.Size; x++)
+            {
+                Assert.True(
+                    expected[new Point(x, y)] == actual[new Point(x, y)],
+                    $"Point ({x}, {y}): expected {expected[new Point(x, y)]}, actual {actual[new Point(x, y)]}.");
+            }
+        }
+    }
+
+    private static void AssertRejected(IGoEngine engine, Point point, MoveStatus status)
+    {
+        PositionSnapshot before = engine.Snapshot();
+
+        Assert.Equal(MoveResult.Rejected(status), engine.Play(point));
+        Assert.Equal(before, engine.Snapshot());
+    }
+
+    private static void AssertPoints(IEnumerable<Point> expected, IReadOnlySet<Point> actual)
+    {
+        Assert.Equal(Sorted(expected), Sorted(actual));
+    }
+
+    private static List<Point> Sorted(IEnumerable<Point> points)
+    {
+        return [.. points.OrderBy(p => p.Y).ThenBy(p => p.X)];
+    }
+
+    // Rule 5: Black moves first on an empty grid, then the turn alternates.
+    // Rule 7: a move colours an empty point; nothing is cleared here.
+    [Fact]
+    public void EmptyBoard_PlaysBlackStone_TurnGoesToWhite()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            ".....",
+            ".....",
+            "..X..",
+            ".....",
+            ".....");
+        Assert.Equal(Color.White, after.ToMove);
+        Assert.Equal(0, after.ConsecutivePasses);
+        Assert.Equal(0, after.BlackStonesRemoved);
+        Assert.Equal(0, after.WhiteStonesRemoved);
+    }
+
+    // Rule 5: players alternate, so without a colour the second move is White's.
+    [Fact]
+    public void PlayWithoutColour_UsesPlayerToMove()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(0, 0)));
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(1, 1)));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            "X....",
+            ".O...",
+            ".....",
+            ".....",
+            ".....");
+        Assert.Equal(Color.Black, after.ToMove);
+    }
+
+    // Rule 7: a move colours a point the mover's colour. IGoEngine: an explicit colour may repeat,
+    // and the turn goes to the opposite of the colour that moved, not of the previous player to move.
+    [Fact]
+    public void ExplicitBlackTwice_IsAccepted_TurnGoesToWhiteEachTime()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(0, 0), Color.Black));
+        Assert.Equal(Color.White, engine.Snapshot().ToMove);
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(1, 1), Color.Black));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            "X....",
+            ".X...",
+            ".....",
+            ".....",
+            ".....");
+        Assert.Equal(Color.White, after.ToMove);
+    }
+
+    // Rule 7 and IGoEngine: White may move first with an explicit colour; the turn then goes to Black.
+    [Fact]
+    public void ExplicitWhiteOnFreshBoard_TurnGoesToBlack()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(0, 0), Color.White));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            "O....",
+            ".....",
+            ".....",
+            ".....",
+            ".....");
+        Assert.Equal(Color.Black, after.ToMove);
+    }
+
+    // Rule 1: points exist only on the grid. IGoEngine: such a point is rejected, not thrown,
+    // and a rejection changes nothing.
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, -1)]
+    [InlineData(5, 0)]
+    [InlineData(0, 5)]
+    public void PointOutsideBoard_IsRejectedAsOutOfBounds(int x, int y)
+    {
+        IGoEngine engine = Load(
+            ".....",
+            ".X...",
+            ".....",
+            "...O.",
+            ".....");
+
+        AssertRejected(engine, new Point(x, y), MoveStatus.OutOfBounds);
+    }
+
+    // Rule 7: a move colours an empty point, so any stone, own or opponent, blocks it.
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(2, 1)]
+    public void OccupiedPoint_IsRejectedAsOccupied(int x, int y)
+    {
+        IGoEngine engine = Load(
+            ".....",
+            ".XO..",
+            ".....",
+            ".....",
+            ".....");
+
+        AssertRejected(engine, new Point(x, y), MoveStatus.Occupied);
+    }
+
+    // Rule 7: after colouring, the opponent colour is cleared; the freed point becomes a liberty.
+    [Fact]
+    public void CaptureInMiddle_RemovesStone_CapturingStoneGainsLiberty()
+    {
+        IGoEngine engine = Load(
+            ".....",
+            "..X..",
+            ".XO..",
+            "..X..",
+            ".....");
+
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(3, 2)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            ".....",
+            "..X..",
+            ".X.X.",
+            "..X..",
+            ".....");
+        AssertPoints([new(3, 1), new(2, 2), new(4, 2), new(3, 3)], engine.GetLiberties(new Point(3, 2)));
+    }
+
+    // Rule 7: clearing on the edge, where the captured stone has only three neighbours.
+    [Fact]
+    public void CaptureOnEdge_RemovesStone_CapturingStoneGainsLiberty()
+    {
+        IGoEngine engine = Load(
+            ".XO..",
+            "..X..",
+            ".....",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(3, 0)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            ".X.X.",
+            "..X..",
+            ".....",
+            ".....",
+            ".....");
+        AssertPoints([new(2, 0), new(4, 0), new(3, 1)], engine.GetLiberties(new Point(3, 0)));
+    }
+
+    // Rule 7: clearing in the corner, where the captured stone has only two neighbours.
+    [Fact]
+    public void CaptureInCorner_RemovesStone_CapturingStoneGainsLiberty()
+    {
+        IGoEngine engine = Load(
+            "OX...",
+            ".....",
+            ".....",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(0, 1)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            ".X...",
+            "X....",
+            ".....",
+            ".....",
+            ".....");
+        AssertPoints([new(0, 0), new(1, 1), new(0, 2)], engine.GetLiberties(new Point(0, 1)));
+    }
+
+    // Rule 7: clearing the opponent colour empties every opponent string that does not reach empty,
+    // so one move removes both strings and Captured counts all their stones.
+    [Fact]
+    public void CaptureOfTwoChains_CapturedIsSumOfBoth()
+    {
+        IGoEngine engine = Load(
+            "OO.OX",
+            "XX.X.",
+            ".....",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            "..X.X",
+            "XX.X.",
+            ".....",
+            ".....",
+            ".....");
+    }
+
+    // Rule 7 and comment 7: the opponent colour is cleared before the mover's own, so a stone with
+    // no empty neighbour that captures is not suicide: rejected neither without suicide allowed
+    // nor self-captured with it, since the own chain never lacks liberties.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CaptureBeforeSuicide_PlayedStoneStays(bool allowSuicide)
+    {
+        IGoEngine engine = Load(
+            allowSuicide,
+            [
+                ".XO..",
+                "XO.O.",
+                ".XO..",
+                ".....",
+                ".....",
+            ]);
+
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(2, 1)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            ".XO..",
+            "X.XO.",
+            ".XO..",
+            ".....",
+            ".....");
+        AssertPoints([new(1, 1)], engine.GetLiberties(new Point(2, 1)));
+    }
+
+    // Comment 7: a move that would clear the mover's own colour is suicide; comment 4: no string
+    // without liberties may remain, so with suicide not allowed the move is rejected.
+    [Fact]
+    public void SingleStoneSuicide_NotAllowed_IsRejected()
+    {
+        IGoEngine engine = Load(
+            ".O...",
+            "O....",
+            ".....",
+            ".....",
+            ".....");
+
+        AssertRejected(engine, new Point(0, 0), MoveStatus.Suicide);
+    }
+
+    // Comment 7 and comment 4: joining an own string and leaving it without liberties is suicide too.
+    [Fact]
+    public void MultiStoneSuicide_NotAllowed_IsRejected()
+    {
+        IGoEngine engine = Load(
+            "X.O..",
+            "OO...",
+            ".....",
+            ".....",
+            ".....");
+
+        AssertRejected(engine, new Point(1, 0), MoveStatus.Suicide);
+    }
+
+    // Rule 7: with suicide allowed, the mover's own string is cleared, the played stone included,
+    // and the turn passes. Only multi-stone strings: a single-stone suicide recreates the previous
+    // colouring, which becomes a superko violation once superko is checked (stage 3.3).
+    [Fact]
+    public void SuicideInCorner_Allowed_SelfCapturesChain()
+    {
+        IGoEngine engine = LoadAllowingSuicide(
+            "X.O..",
+            "OO...",
+            ".....",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.SelfCapture(2), engine.Play(new Point(1, 0)));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            "..O..",
+            "OO...",
+            ".....",
+            ".....",
+            ".....");
+        Assert.Equal(Color.White, after.ToMove);
+    }
+
+    // Rule 7: see SuicideInCorner_Allowed_SelfCapturesChain; the played stone joins two own stones.
+    [Fact]
+    public void SuicideInMiddle_Allowed_SelfCapturesChain()
+    {
+        IGoEngine engine = LoadAllowingSuicide(
+            ".OOO.",
+            "OX.XO",
+            ".OOO.",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1)));
+
+        PositionSnapshot after = engine.Snapshot();
+        AssertBoard(
+            after,
+            ".OOO.",
+            "O...O",
+            ".OOO.",
+            ".....",
+            ".....");
+        Assert.Equal(Color.White, after.ToMove);
+    }
+
+    // Rule 7 and IGoEngine: captured stones are added to the opponent's removed counter; the
+    // mover's counter does not change. Non-zero start values catch assignment instead of addition.
+    [Fact]
+    public void Capture_AddsCapturedToOpponentRemovedCounter()
+    {
+        PositionSnapshot board = Diagram.Parse(
+            "OO.OX",
+            "XX.X.",
+            ".....",
+            ".....",
+            ".....");
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+
+        Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0)));
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.Equal(4, after.BlackStonesRemoved);
+        Assert.Equal(9, after.WhiteStonesRemoved);
+    }
+
+    // Rule 7 and IGoEngine: self-captured stones are added to the mover's own removed counter.
+    [Fact]
+    public void SelfCapture_AddsSelfCapturedToMoverRemovedCounter()
+    {
+        PositionSnapshot board = Diagram.Parse(
+            ".OOO.",
+            "OX.XO",
+            ".OOO.",
+            ".....",
+            ".....");
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5, allowSuicide: true),
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+
+        Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1)));
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.Equal(7, after.BlackStonesRemoved);
+        Assert.Equal(6, after.WhiteStonesRemoved);
+    }
+
+    // Rule 8: only consecutive passes end the game, so a move resets the count.
+    [Fact]
+    public void AcceptedPlay_ResetsConsecutivePasses()
+    {
+        PositionSnapshot board = Diagram.Parse(
+            ".....",
+            ".X...",
+            ".....",
+            "...O.",
+            ".....");
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(board, consecutivePasses: 1, blackStonesRemoved: 0, whiteStonesRemoved: 0));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
+
+        Assert.Equal(0, engine.Snapshot().ConsecutivePasses);
+    }
+
+    // Rule 1: there are only two players. IGoEngine: an invalid argument throws before any rule
+    // is checked, so a point outside the board does not turn it into OutOfBounds.
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(3, 0, 0)]
+    [InlineData(0, -1, 0)]
+    [InlineData(3, 5, 0)]
+    public void UndefinedColour_Throws(int color, int x, int y)
+    {
+        IGoEngine engine = Load(
+            ".....",
+            ".X...",
+            ".....",
+            ".....",
+            ".....");
+        PositionSnapshot before = engine.Snapshot();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => engine.Play(new Point(x, y), (Color)color));
+        Assert.Equal(before, engine.Snapshot());
+    }
+
+    // IGoEngine: returned sets are copies owned by the caller, so a later move does not change them.
+    [Fact]
+    public void LibertiesTakenBeforeMove_AreNotChangedByMove()
+    {
+        IGoEngine engine = Load(
+            ".....",
+            ".XX..",
+            ".....",
+            ".....",
+            ".....");
+        IReadOnlySet<Point> before = engine.GetLiberties(new Point(1, 1));
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(1, 0), Color.White));
+
+        AssertPoints([new(1, 0), new(2, 0), new(0, 1), new(3, 1), new(1, 2), new(2, 2)], before);
+        Assert.DoesNotContain(new Point(1, 0), engine.GetLiberties(new Point(1, 1)));
+    }
+}
