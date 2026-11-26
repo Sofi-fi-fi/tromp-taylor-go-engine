@@ -311,6 +311,22 @@ public abstract class ChainContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
+    // Comment 4: strings without liberties cannot exist on the board. The dead White chain comes
+    // after live Black stones in row-major order, so checking only the first stone is not enough.
+    [Fact]
+    public void Loading_DeadMultiStoneChainAfterLiveStones_Throws()
+    {
+        PositionSnapshot position = Diagram.Parse(
+            "...",
+            ".XX",
+            "XOO");
+
+        ArgumentException ex = Assert.Throws<ArgumentException>(
+            () => CreateEngine(RuleSet.CreateForTests(3), position));
+
+        Assert.Equal("position", ex.ParamName);
+    }
+
     // Comment 4: on a full board no string has a liberty.
     [Fact]
     public void Loading_FullBoard_Throws()
@@ -324,5 +340,40 @@ public abstract class ChainContractTests
             () => CreateEngine(RuleSet.CreateForTests(3), position));
 
         Assert.Equal("position", ex.ParamName);
+    }
+
+    // IGoEngine: returned sets are copies owned by the caller, so clearing a mutable result must not
+    // affect the engine; a read-only set cannot be corrupted by the caller.
+    [Fact]
+    public void GetChain_ReturnsCopy()
+    {
+        IGoEngine engine = Load(
+            "XX.",
+            "...",
+            "...");
+
+        if (engine.GetChain(new Point(0, 0)) is ISet<Point> { IsReadOnly: false } first)
+        {
+            first.Clear();
+        }
+
+        AssertPoints([new(0, 0), new(1, 0)], engine.GetChain(new Point(0, 0)));
+    }
+
+    // IGoEngine: returned sets are copies owned by the caller; see GetChain_ReturnsCopy.
+    [Fact]
+    public void GetLiberties_ReturnsCopy()
+    {
+        IGoEngine engine = Load(
+            "XX.",
+            "...",
+            "...");
+
+        if (engine.GetLiberties(new Point(0, 0)) is ISet<Point> { IsReadOnly: false } first)
+        {
+            first.Clear();
+        }
+
+        AssertPoints([new(2, 0), new(0, 1), new(1, 1)], engine.GetLiberties(new Point(0, 0)));
     }
 }
