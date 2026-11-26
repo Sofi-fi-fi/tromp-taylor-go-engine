@@ -30,14 +30,16 @@ public sealed record RuleSet
     /// <see cref="CreateForTests"/>: the number of points on the largest board.
     /// </summary>
     /// <remarks>
-    /// A larger komi cannot change the outcome (who wins, or a draw), and the bound keeps score arithmetic far from
-    /// <see cref="decimal"/> overflow.
+    /// A larger komi cannot change the outcome (who wins, or a draw), and the bound keeps
+    /// score arithmetic far from <see cref="decimal"/> overflow.
     /// </remarks>
     public const decimal MaxAbsKomi = MaxSize * MaxSize;
 
     private RuleSet(int size, decimal komi, bool allowSuicide)
     {
-        throw new NotImplementedException();
+        Size = size;
+        Komi = komi;
+        AllowSuicide = allowSuicide;
     }
 
     /// <summary>
@@ -66,10 +68,12 @@ public sealed record RuleSet
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="size"/> is less than <see cref="MinSize"/> or greater than <see cref="MaxSize"/>,
     /// or the absolute value of <paramref name="komi"/> is greater than <see cref="MaxAbsKomi"/>.
+    /// <paramref name="size"/> is checked before <paramref name="komi"/>, so when both are out of range
+    /// the exception names <paramref name="size"/>.
     /// </exception>
     public static RuleSet Create(int size, decimal komi = 7.5m, bool allowSuicide = false)
     {
-        return new RuleSet(size, komi, allowSuicide);
+        return CreateValidated(size, MinSize, komi, allowSuicide);
     }
 
     /// <summary>
@@ -86,9 +90,38 @@ public sealed record RuleSet
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="size"/> is less than <see cref="MinTestSize"/> or greater than <see cref="MaxSize"/>,
     /// or the absolute value of <paramref name="komi"/> is greater than <see cref="MaxAbsKomi"/>.
+    /// <paramref name="size"/> is checked before <paramref name="komi"/>, so when both are out of range
+    /// the exception names <paramref name="size"/>.
     /// </exception>
     internal static RuleSet CreateForTests(int size, decimal komi = 7.5m, bool allowSuicide = false)
     {
+        return CreateValidated(size, MinTestSize, komi, allowSuicide);
+    }
+
+    /// <summary>
+    /// Checks <paramref name="size"/> against <paramref name="minSize"/> and <see cref="MaxSize"/>,
+    /// then <paramref name="komi"/> against <see cref="MaxAbsKomi"/>, and creates the rule set.
+    /// </summary>
+    /// <remarks>
+    /// The parameters are named like the factories' parameters and passed to the throw helpers
+    /// directly, because the helpers take <see cref="ArgumentException.ParamName"/> from the
+    /// argument expression.
+    /// </remarks>
+    /// <param name="size">The board size to check.</param>
+    /// <param name="minSize">The smallest board size the calling factory accepts.</param>
+    /// <param name="komi">The komi to check.</param>
+    /// <param name="allowSuicide">Whether suicide moves are legal.</param>
+    /// <returns>A rule set with the given parameters.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="size"/> or <paramref name="komi"/> is out of range.
+    /// </exception>
+    private static RuleSet CreateValidated(int size, int minSize, decimal komi, bool allowSuicide)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(size, minSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, MaxSize);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(komi, MaxAbsKomi);
+        ArgumentOutOfRangeException.ThrowIfLessThan(komi, -MaxAbsKomi);
+
         return new RuleSet(size, komi, allowSuicide);
     }
 }
