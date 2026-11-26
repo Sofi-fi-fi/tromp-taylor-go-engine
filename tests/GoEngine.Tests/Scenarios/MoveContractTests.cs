@@ -26,16 +26,37 @@ public abstract class MoveContractTests
         return CreateEngine(RuleSet.CreateForTests(position.Size, allowSuicide: allowSuicide), position);
     }
 
+    // A pass count and removed counters that a rejected move must not reset or touch.
+    private IGoEngine LoadMidGame(params string[] rows)
+    {
+        PositionSnapshot board = Diagram.Parse(rows);
+        return CreateEngine(
+            RuleSet.CreateForTests(board.Size),
+            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+    }
+
     private static PositionSnapshot WithState(
-        PositionSnapshot board, int consecutivePasses, int blackStonesRemoved, int whiteStonesRemoved)
+        PositionSnapshot board,
+        int consecutivePasses,
+        int blackStonesRemoved,
+        int whiteStonesRemoved,
+        Color toMove = Color.Black)
     {
         return new PositionSnapshot(
             board.Size,
             [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
-            board.ToMove,
+            toMove,
             consecutivePasses,
             blackStonesRemoved,
             whiteStonesRemoved);
+    }
+
+    // Diagrams in colour theories draw the mover as X; for White the colours are swapped.
+    private static string[] ForMover(Color mover, params string[] rows)
+    {
+        return mover == Color.Black
+            ? rows
+            : [.. rows.Select(r => new string([.. r.Select(c => c switch { 'X' => 'O', 'O' => 'X', _ => c })]))];
     }
 
     private static void AssertBoard(PositionSnapshot actual, params string[] rows)
@@ -165,7 +186,7 @@ public abstract class MoveContractTests
     [InlineData(0, 5)]
     public void PointOutsideBoard_IsRejectedAsOutOfBounds(int x, int y)
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadMidGame(
             ".....",
             ".X...",
             ".....",
@@ -181,7 +202,7 @@ public abstract class MoveContractTests
     [InlineData(2, 1)]
     public void OccupiedPoint_IsRejectedAsOccupied(int x, int y)
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadMidGame(
             ".....",
             ".XO..",
             ".....",
@@ -318,7 +339,7 @@ public abstract class MoveContractTests
     [Fact]
     public void SingleStoneSuicide_NotAllowed_IsRejected()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadMidGame(
             ".O...",
             "O....",
             ".....",
@@ -332,7 +353,7 @@ public abstract class MoveContractTests
     [Fact]
     public void MultiStoneSuicide_NotAllowed_IsRejected()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadMidGame(
             "X.O..",
             "OO...",
             ".....",
@@ -393,46 +414,83 @@ public abstract class MoveContractTests
     }
 
     // Rule 7 and IGoEngine: captured stones are added to the opponent's removed counter; the
-    // mover's counter does not change. Non-zero start values catch assignment instead of addition.
-    [Fact]
-    public void Capture_AddsCapturedToOpponentRemovedCounter()
+    // mover's counter does not change. Different non-zero start values catch assignment instead of
+    // addition and a swapped counter.
+    [Theory]
+    [InlineData(Color.Black, 4, 9)]
+    [InlineData(Color.White, 7, 6)]
+    public void Capture_AddsCapturedToOpponentRemovedCounter(Color mover, int black, int white)
     {
-        PositionSnapshot board = Diagram.Parse(
+        PositionSnapshot board = Diagram.Parse(ForMover(
+            mover,
             "OO.OX",
             "XX.X.",
+            ".....",
+            ".....",
+            "....."));
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+
+        Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0), mover));
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.Equal(black, after.BlackStonesRemoved);
+        Assert.Equal(white, after.WhiteStonesRemoved);
+    }
+
+    // Rule 5 and rule 7: without a colour White, the player to move, captures; Black's counter grows
+    // and the turn goes to Black.
+    [Fact]
+    public void WhiteToMove_PlayWithoutColour_CapturesForWhite()
+    {
+        PositionSnapshot board = Diagram.Parse(
+            "XX.XO",
+            "OO.O.",
             ".....",
             ".....",
             ".....");
         IGoEngine engine = CreateEngine(
             RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White));
 
         Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0)));
 
         PositionSnapshot after = engine.Snapshot();
-        Assert.Equal(4, after.BlackStonesRemoved);
-        Assert.Equal(9, after.WhiteStonesRemoved);
+        AssertBoard(
+            after,
+            "..O.O",
+            "OO.O.",
+            ".....",
+            ".....",
+            ".....");
+        Assert.Equal(7, after.BlackStonesRemoved);
+        Assert.Equal(6, after.WhiteStonesRemoved);
+        Assert.Equal(Color.Black, after.ToMove);
     }
 
     // Rule 7 and IGoEngine: self-captured stones are added to the mover's own removed counter.
-    [Fact]
-    public void SelfCapture_AddsSelfCapturedToMoverRemovedCounter()
+    [Theory]
+    [InlineData(Color.Black, 7, 6)]
+    [InlineData(Color.White, 4, 9)]
+    public void SelfCapture_AddsSelfCapturedToMoverRemovedCounter(Color mover, int black, int white)
     {
-        PositionSnapshot board = Diagram.Parse(
+        PositionSnapshot board = Diagram.Parse(ForMover(
+            mover,
             ".OOO.",
             "OX.XO",
             ".OOO.",
             ".....",
-            ".....");
+            "....."));
         IGoEngine engine = CreateEngine(
             RuleSet.CreateForTests(5, allowSuicide: true),
             WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
 
-        Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1)));
+        Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1), mover));
 
         PositionSnapshot after = engine.Snapshot();
-        Assert.Equal(7, after.BlackStonesRemoved);
-        Assert.Equal(6, after.WhiteStonesRemoved);
+        Assert.Equal(black, after.BlackStonesRemoved);
+        Assert.Equal(white, after.WhiteStonesRemoved);
     }
 
     // Rule 8: only consecutive passes end the game, so a move resets the count.
