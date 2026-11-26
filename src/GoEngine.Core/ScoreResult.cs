@@ -22,7 +22,16 @@ public sealed record ScoreResult
     /// </exception>
     public ScoreResult(int blackArea, int whiteArea, int neutralPoints, decimal komi)
     {
-        throw new NotImplementedException();
+        ArgumentOutOfRangeException.ThrowIfNegative(blackArea);
+        ArgumentOutOfRangeException.ThrowIfNegative(whiteArea);
+        ArgumentOutOfRangeException.ThrowIfNegative(neutralPoints);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(komi, RuleSet.MaxAbsKomi);
+        ArgumentOutOfRangeException.ThrowIfLessThan(komi, -RuleSet.MaxAbsKomi);
+
+        BlackArea = blackArea;
+        WhiteArea = whiteArea;
+        NeutralPoints = neutralPoints;
+        Komi = komi;
     }
 
     /// <summary>
@@ -49,22 +58,38 @@ public sealed record ScoreResult
     /// <summary>
     /// White's final score: <see cref="WhiteArea"/> plus <see cref="Komi"/>.
     /// </summary>
-    public decimal WhiteScore => throw new NotImplementedException();
+    public decimal WhiteScore => WhiteArea + Komi;
 
     /// <summary>
     /// The player whose score is higher, comparing <see cref="BlackArea"/> with
     /// <see cref="WhiteScore"/>; <see langword="null"/> when the scores are equal.
     /// </summary>
-    public Color? Winner => throw new NotImplementedException();
+    public Color? Winner
+    {
+        get
+        {
+            if (BlackArea > WhiteScore)
+            {
+                return Color.Black;
+            }
+
+            if (BlackArea < WhiteScore)
+            {
+                return Color.White;
+            }
+
+            return null;
+        }
+    }
 
     /// <summary>
     /// Whether <see cref="BlackArea"/> equals <see cref="WhiteScore"/>.
     /// </summary>
-    public bool IsDraw => throw new NotImplementedException();
+    public bool IsDraw => BlackArea == WhiteScore;
 
     /// <summary>
     /// The absolute difference between <see cref="BlackArea"/> and <see cref="WhiteScore"/>;
     /// <c>0</c> for a draw.
     /// </summary>
-    public decimal Margin => throw new NotImplementedException();
+    public decimal Margin => Math.Abs(BlackArea - WhiteScore);
 }

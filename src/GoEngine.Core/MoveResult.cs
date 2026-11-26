@@ -16,7 +16,9 @@ public readonly record struct MoveResult
 {
     private MoveResult(MoveStatus status, int captured, int selfCaptured)
     {
-        throw new NotImplementedException();
+        Status = status;
+        Captured = captured;
+        SelfCaptured = selfCaptured;
     }
 
     /// <summary>
@@ -39,7 +41,7 @@ public readonly record struct MoveResult
     /// <summary>
     /// Whether <see cref="Status"/> is <see cref="MoveStatus.Ok"/>.
     /// </summary>
-    public bool IsOk => throw new NotImplementedException();
+    public bool IsOk => Status == MoveStatus.Ok;
 
     /// <summary>
     /// Creates the result of a move that was played and did not remove the player's own stones.
@@ -54,6 +56,8 @@ public readonly record struct MoveResult
     /// </exception>
     public static MoveResult Success(int captured)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(captured);
+
         return new MoveResult(MoveStatus.Ok, captured, 0);
     }
 
@@ -72,6 +76,8 @@ public readonly record struct MoveResult
     /// </exception>
     public static MoveResult SelfCapture(int selfCaptured)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(selfCaptured, 1);
+
         return new MoveResult(MoveStatus.Ok, 0, selfCaptured);
     }
 
@@ -88,6 +94,11 @@ public readonly record struct MoveResult
     /// </exception>
     public static MoveResult Rejected(MoveStatus status)
     {
+        if (status == MoveStatus.Ok || !Enum.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "Not a rejection status.");
+        }
+
         return new MoveResult(status, 0, 0);
     }
 }
