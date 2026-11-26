@@ -6,11 +6,11 @@ namespace GoEngine.Reference;
 public sealed class ReferenceEngine : IGoEngine
 {
     private readonly RuleSet _rules;
-    private readonly Grid _grid;
-    private readonly Color _toMove;
-    private readonly int _consecutivePasses;
-    private readonly int _blackStonesRemoved;
-    private readonly int _whiteStonesRemoved;
+    private Grid _grid;
+    private Color _toMove;
+    private int _consecutivePasses;
+    private int _blackStonesRemoved;
+    private int _whiteStonesRemoved;
 
     /// <summary>Starts a game on an empty board with Black to move.</summary>
     public ReferenceEngine(RuleSet rules)
@@ -48,14 +48,64 @@ public sealed class ReferenceEngine : IGoEngine
         _whiteStonesRemoved = position.WhiteStonesRemoved;
     }
 
+    // Rule 5: without a colour the player to move plays.
     public MoveResult Play(Point point)
     {
-        throw new NotImplementedException();
+        return Play(point, _toMove);
     }
 
     public MoveResult Play(Point point, Color color)
     {
-        throw new NotImplementedException();
+        // IGoEngine: an invalid argument throws before any rule is checked.
+        if (!Enum.IsDefined(color))
+        {
+            throw new ArgumentOutOfRangeException(nameof(color), color, "Undefined color.");
+        }
+
+        // Rule 1: points exist only on the grid.
+        if (!_grid.Contains(point))
+        {
+            return MoveResult.Rejected(MoveStatus.OutOfBounds);
+        }
+
+        // Rule 7: a move colours an empty point.
+        if (_grid[point] != PointState.Empty)
+        {
+            return MoveResult.Rejected(MoveStatus.Occupied);
+        }
+
+        // Rule 7: colour the point, clear the opponent colour, then clear one's own colour.
+        // Comment 7: at most one of the two clearings has an effect.
+        PointState own = color.ToPointState();
+        PointState opponent = color.Opposite().ToPointState();
+        (Grid afterOpponent, int captured) = _grid.With(point, own).Clear(opponent);
+        (Grid afterOwn, int selfCaptured) = afterOpponent.Clear(own);
+
+        // Comment 7: clearing one's own colour is suicide; the new grids are dropped, nothing changed.
+        if (selfCaptured > 0 && !_rules.AllowSuicide)
+        {
+            return MoveResult.Rejected(MoveStatus.Suicide);
+        }
+
+        _grid = afterOwn;
+        if (color == Color.Black)
+        {
+            _whiteStonesRemoved += captured;
+            _blackStonesRemoved += selfCaptured;
+        }
+        else
+        {
+            _blackStonesRemoved += captured;
+            _whiteStonesRemoved += selfCaptured;
+        }
+
+        // Rule 5 and IGoEngine: the turn goes to the opposite of the colour that moved.
+        _toMove = color.Opposite();
+
+        // Rule 8: only consecutive passes count, so a move resets the count.
+        _consecutivePasses = 0;
+
+        return selfCaptured > 0 ? MoveResult.SelfCapture(selfCaptured) : MoveResult.Success(captured);
     }
 
     public MoveResult Pass()

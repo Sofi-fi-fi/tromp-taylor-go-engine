@@ -4,6 +4,8 @@ namespace GoEngine.Reference;
 
 // The oracle trades speed for obviousness: every query is a full traversal with no caching or
 // union-find, so it shares no algorithm with Core (design doc §7).
+// Immutable: an operation returns a new grid, so a rejected move is discarded for free and later
+// stages can keep whole positions (superko history, undo stack) without copying by hand.
 internal sealed class Grid
 {
     private readonly PointState[] _points;
@@ -18,11 +20,18 @@ internal sealed class Grid
         }
     }
 
+    // Takes ownership of points; callers pass a fresh array.
+    private Grid(int size, PointState[] points)
+    {
+        Size = size;
+        _points = points;
+    }
+
     public int Size { get; }
 
     public PointState this[Point p] => _points[Index(p)];
 
-    // Rule 1: the grid is Size x Size.
+    // Comment 1: the grid is Size x Size; sizes other than 19 are by agreement.
     public bool Contains(Point p)
     {
         return p.X >= 0 && p.X < Size && p.Y >= 0 && p.Y < Size;
@@ -67,6 +76,28 @@ internal sealed class Grid
     public IReadOnlySet<Point> Liberties(Point p)
     {
         return Chain(p).SelectMany(Neighbours).Where(n => this[n] == PointState.Empty).ToHashSet();
+    }
+
+    public Grid With(Point p, PointState state)
+    {
+        PointState[] points = (PointState[])_points.Clone();
+        points[Index(p)] = state;
+        return new Grid(Size, points);
+    }
+
+    // Rule 4: empties every point of colour that does not reach empty. All points are chosen first,
+    // as rule 4 defines clearing on the grid as it is.
+    public (Grid Grid, int Removed) Clear(PointState colour)
+    {
+        List<Point> cleared = [.. AllPoints().Where(p => this[p] == colour && !Reaches(p, PointState.Empty))];
+
+        PointState[] points = (PointState[])_points.Clone();
+        foreach (Point p in cleared)
+        {
+            points[Index(p)] = PointState.Empty;
+        }
+
+        return (new Grid(Size, points), cleared.Count);
     }
 
     // All points connected to p through points of p's colour, p included.
