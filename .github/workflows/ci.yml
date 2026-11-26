@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      # Isolated SDK directory hides the runner's preinstalled SDKs: with
+      # rollForward=latestMajor in global.json a newer one (e.g. 11.x) would win.
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Fail fast if anything other than SDK 10.0.x was selected.
+      - name: Verify .NET SDK version
+        run: |
+          dotnet --info
+          version="$(dotnet --version)"
+          if [[ "$version" != 10.0.* ]]; then
+            echo "::error::Expected .NET SDK 10.0.x, got $version"
+            exit 1
+          fi
+
+      - name: Build
+        run: dotnet build -c Release
+
+      # Fast suite only. No test categories exist yet (they arrive in PLAN 2.1),
+      # so today this filter matches every test; that is expected.
+      - name: Test
+        run: dotnet test -c Release --no-build --filter "Category!=Performance&Category!=Exhaustive&Category!=Heavy"
