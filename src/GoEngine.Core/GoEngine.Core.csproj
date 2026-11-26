@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Public members of the contract must be documented: re-enable CS1591, which Directory.Build.props suppresses. -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="GoEngine.Tests" />
   </ItemGroup>
