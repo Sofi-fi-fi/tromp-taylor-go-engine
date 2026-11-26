@@ -62,6 +62,12 @@ public sealed class ReferenceEngine : IGoEngine
             throw new ArgumentOutOfRangeException(nameof(color), color, "Undefined color.");
         }
 
+        // Rule 8 and IGoEngine: after the game has ended no turn is played; checked before the point.
+        if (IsOver)
+        {
+            return MoveResult.Rejected(MoveStatus.GameOver);
+        }
+
         // Rule 1: points exist only on the grid.
         if (!_grid.Contains(point))
         {
@@ -108,14 +114,33 @@ public sealed class ReferenceEngine : IGoEngine
         return selfCaptured > 0 ? MoveResult.SelfCapture(selfCaptured) : MoveResult.Success(captured);
     }
 
+    // Rule 5: without a colour the player to move passes.
     public MoveResult Pass()
     {
-        throw new NotImplementedException();
+        return Pass(_toMove);
     }
 
     public MoveResult Pass(Color color)
     {
-        throw new NotImplementedException();
+        // IGoEngine: an invalid argument throws before any rule is checked.
+        if (!Enum.IsDefined(color))
+        {
+            throw new ArgumentOutOfRangeException(nameof(color), color, "Undefined color.");
+        }
+
+        // Rule 8: after the game has ended no turn is played.
+        if (IsOver)
+        {
+            return MoveResult.Rejected(MoveStatus.GameOver);
+        }
+
+        // Rule 6: a pass colours nothing, so the grid and removed counters stay.
+        _consecutivePasses++;
+
+        // Rule 5 and IGoEngine: the turn goes to the opposite of the colour that passed.
+        _toMove = color.Opposite();
+
+        return MoveResult.Success(0);
     }
 
     public bool Undo()
@@ -146,6 +171,9 @@ public sealed class ReferenceEngine : IGoEngine
         ThrowIfOutside(point);
         return _grid.Liberties(point);
     }
+
+    // Rule 8: the game ends after two consecutive passes.
+    private bool IsOver => _consecutivePasses == 2;
 
     // Rule 5: the game starts with an empty grid and Black to move.
     private static PositionSnapshot EmptyPosition(RuleSet rules)
