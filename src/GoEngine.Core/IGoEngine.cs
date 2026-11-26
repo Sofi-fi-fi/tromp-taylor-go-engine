@@ -4,16 +4,18 @@ namespace GoEngine.Core;
 /// <remarks>
 /// Rule violations are returned as <see cref="MoveResult"/>, never thrown. An invalid argument
 /// throws before any rule is checked, even after the game is over.
-/// Play reports the first that applies of <see cref="MoveStatus.GameOver"/>,
-/// <see cref="MoveStatus.OutOfBounds"/>, <see cref="MoveStatus.Occupied"/>,
-/// <see cref="MoveStatus.Suicide"/> and <see cref="MoveStatus.Superko"/>. Opponent chains left
-/// without liberties are removed first; suicide is judged on the board after that.
-/// Pass is rejected only with <see cref="MoveStatus.GameOver"/>.
+/// <see cref="Play(Point)"/> and <see cref="Play(Point, Color)"/> report the first that applies
+/// of <see cref="MoveStatus.GameOver"/>, <see cref="MoveStatus.OutOfBounds"/>,
+/// <see cref="MoveStatus.Occupied"/>, <see cref="MoveStatus.Suicide"/> and
+/// <see cref="MoveStatus.Superko"/>. Opponent chains left without liberties are removed first;
+/// suicide is judged on the board after that.
+/// <see cref="Pass()"/> and <see cref="Pass(Color)"/> are rejected only with
+/// <see cref="MoveStatus.GameOver"/>.
 /// A rejected Play or Pass changes nothing: position, turn, pass count and history.
 /// Without a color the player to move plays. After any accepted Play or Pass the turn goes to
 /// the opposite of the color that moved, so explicit colors may repeat.
 /// Two consecutive passes of any colors end the game; Play and Pass then return
-/// <see cref="MoveStatus.GameOver"/>, Undo still works.
+/// <see cref="MoveStatus.GameOver"/>, <see cref="Undo()"/> still works.
 /// Suicide is rejected unless <see cref="RuleSet.AllowSuicide"/>; when allowed, the own chain
 /// is removed (<see cref="MoveResult.SelfCapture"/>).
 /// Superko is positional: a played stone may not recreate any earlier board coloring, the

@@ -1,25 +1,16 @@
 namespace GoEngine.Core;
 
-/// <summary>
-/// The area score of a position: the points that count for each player, the points that count
-/// for neither, and the komi added to White's score. Instances are compared by value.
-/// </summary>
+/// <summary>The area score of a position, compared by value.</summary>
+/// <remarks>A class, because a <c>default</c> struct would read as a real draw.</remarks>
 public sealed record ScoreResult
 {
-    /// <summary>
-    /// Creates a score from the point counts and komi.
-    /// </summary>
-    /// <param name="blackArea">The number of points that count for Black; not negative.</param>
-    /// <param name="whiteArea">The number of points that count for White, without komi; not negative.</param>
-    /// <param name="neutralPoints">The number of points that count for neither player; not negative.</param>
-    /// <param name="komi">The points added to White's score, with absolute value at most <see cref="RuleSet.MaxAbsKomi"/>.</param>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="blackArea"/>, <paramref name="whiteArea"/> or <paramref name="neutralPoints"/>
-    /// is negative, or the absolute value of <paramref name="komi"/> is greater than
-    /// <see cref="RuleSet.MaxAbsKomi"/>. The arguments are checked in parameter order, so
-    /// <paramref name="komi"/> is checked after the counts and the exception names the first
-    /// invalid argument.
-    /// </exception>
+    /// <summary>Creates a score from the point counts and komi.</summary>
+    /// <remarks>Arguments are checked in parameter order.</remarks>
+    /// <param name="blackArea">Not negative.</param>
+    /// <param name="whiteArea">Not negative.</param>
+    /// <param name="neutralPoints">Not negative.</param>
+    /// <param name="komi">Absolute value at most <see cref="RuleSet.MaxAbsKomi"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An argument is out of range.</exception>
     public ScoreResult(int blackArea, int whiteArea, int neutralPoints, decimal komi)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(blackArea);
@@ -34,35 +25,24 @@ public sealed record ScoreResult
         Komi = komi;
     }
 
-    /// <summary>
-    /// The number of points that count for Black.
-    /// </summary>
+    /// <summary>Points that count for Black.</summary>
     public int BlackArea { get; }
 
-    /// <summary>
-    /// The number of points that count for White, without komi.
-    /// </summary>
+    /// <summary>Points that count for White, without komi.</summary>
     public int WhiteArea { get; }
 
-    /// <summary>
-    /// The number of points that count for neither player.
-    /// </summary>
+    /// <summary>Points that count for neither player.</summary>
     public int NeutralPoints { get; }
 
-    /// <summary>
-    /// The points added to White's score; may be zero, negative or fractional, and its
-    /// absolute value is at most <see cref="RuleSet.MaxAbsKomi"/>.
-    /// </summary>
+    /// <summary>The <see cref="RuleSet.Komi"/> the score was computed with.</summary>
     public decimal Komi { get; }
 
-    /// <summary>
-    /// White's final score: <see cref="WhiteArea"/> plus <see cref="Komi"/>.
-    /// </summary>
+    /// <summary><see cref="WhiteArea"/> plus <see cref="Komi"/>.</summary>
     public decimal WhiteScore => WhiteArea + Komi;
 
     /// <summary>
-    /// The player whose score is higher, comparing <see cref="BlackArea"/> with
-    /// <see cref="WhiteScore"/>; <see langword="null"/> when the scores are equal.
+    /// The player with the higher score, <see cref="BlackArea"/> against <see cref="WhiteScore"/>;
+    /// <see langword="null"/> for a draw.
     /// </summary>
     public Color? Winner
     {
@@ -82,14 +62,9 @@ public sealed record ScoreResult
         }
     }
 
-    /// <summary>
-    /// Whether <see cref="BlackArea"/> equals <see cref="WhiteScore"/>.
-    /// </summary>
+    /// <summary>Whether both scores are equal.</summary>
     public bool IsDraw => BlackArea == WhiteScore;
 
-    /// <summary>
-    /// The absolute difference between <see cref="BlackArea"/> and <see cref="WhiteScore"/>;
-    /// <c>0</c> for a draw.
-    /// </summary>
+    /// <summary>The absolute difference between the two scores.</summary>
     public decimal Margin => Math.Abs(BlackArea - WhiteScore);
 }

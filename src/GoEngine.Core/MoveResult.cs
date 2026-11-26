@@ -1,16 +1,12 @@
 namespace GoEngine.Core;
 
 /// <summary>
-/// The result of an attempt to play a move: its <see cref="Status"/> and, for a played move,
-/// the number of stones it removed from the board. Instances are compared by value.
+/// The result of <see cref="IGoEngine.Play(Point)"/>, <see cref="IGoEngine.Play(Point, Color)"/>,
+/// <see cref="IGoEngine.Pass()"/> or <see cref="IGoEngine.Pass(Color)"/>, compared by value.
 /// </summary>
 /// <remarks>
-/// The constructor is private and the properties are get-only, so every instance other than
-/// <c>default</c> comes from <see cref="Success"/>, <see cref="SelfCapture"/> or
-/// <see cref="Rejected"/>. A <c>default</c> instance has an undefined <see cref="Status"/>, so
-/// <see cref="IsOk"/> is <see langword="false"/> for it.
-/// A move either captures opponent stones or removes its own chain, never both, so at most one
-/// of <see cref="Captured"/> and <see cref="SelfCaptured"/> is non-zero.
+/// Only the factories create instances, so a rejected move with captures, or a move that both
+/// captures and self-captures, cannot be built. <c>default</c> is not <see cref="IsOk"/>.
 /// </remarks>
 public readonly record struct MoveResult
 {
@@ -21,39 +17,21 @@ public readonly record struct MoveResult
         SelfCaptured = selfCaptured;
     }
 
-    /// <summary>
-    /// <see cref="MoveStatus.Ok"/> if the move was played, otherwise the reason it was rejected.
-    /// </summary>
+    /// <summary>Whether the move was played and, if not, why.</summary>
     public MoveStatus Status { get; }
 
-    /// <summary>
-    /// The number of opponent stones removed by the move; own stones are never counted here.
-    /// <c>0</c> for a rejected move.
-    /// </summary>
+    /// <summary>Opponent stones the move removed.</summary>
     public int Captured { get; }
 
-    /// <summary>
-    /// The number of the player's own stones, including the placed stone, removed by a suicide
-    /// move that the rule set allows; <c>0</c> for any other move.
-    /// </summary>
+    /// <summary>Own stones, the placed one included, removed by an allowed suicide.</summary>
     public int SelfCaptured { get; }
 
-    /// <summary>
-    /// Whether <see cref="Status"/> is <see cref="MoveStatus.Ok"/>.
-    /// </summary>
+    /// <summary>Whether <see cref="Status"/> is <see cref="MoveStatus.Ok"/>.</summary>
     public bool IsOk => Status == MoveStatus.Ok;
 
-    /// <summary>
-    /// Creates the result of a move that was played and did not remove the player's own stones.
-    /// </summary>
-    /// <param name="captured">The number of opponent stones the move removed; not negative.</param>
-    /// <returns>
-    /// A result with <see cref="MoveStatus.Ok"/>, the given capture count and
-    /// <see cref="SelfCaptured"/> equal to <c>0</c>.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="captured"/> is negative.
-    /// </exception>
+    /// <summary>A played move that removed none of its own stones.</summary>
+    /// <param name="captured">The <see cref="Captured"/> count; not negative.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The count is out of range.</exception>
     public static MoveResult Success(int captured)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(captured);
@@ -61,19 +39,9 @@ public readonly record struct MoveResult
         return new MoveResult(MoveStatus.Ok, captured, 0);
     }
 
-    /// <summary>
-    /// Creates the result of a suicide move that was played because the rule set allows suicide.
-    /// </summary>
-    /// <param name="selfCaptured">
-    /// The number of the player's own stones the move removed, including the placed stone; at least <c>1</c>.
-    /// </param>
-    /// <returns>
-    /// A result with <see cref="MoveStatus.Ok"/>, <see cref="Captured"/> equal to <c>0</c> and the
-    /// given self-capture count.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="selfCaptured"/> is less than <c>1</c>.
-    /// </exception>
+    /// <summary>A suicide played under <see cref="RuleSet.AllowSuicide"/>.</summary>
+    /// <param name="selfCaptured">The <see cref="SelfCaptured"/> count; at least <c>1</c>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The count is out of range.</exception>
     public static MoveResult SelfCapture(int selfCaptured)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(selfCaptured, 1);
@@ -81,17 +49,9 @@ public readonly record struct MoveResult
         return new MoveResult(MoveStatus.Ok, 0, selfCaptured);
     }
 
-    /// <summary>
-    /// Creates the result of a move that was rejected.
-    /// </summary>
-    /// <param name="status">The reason for the rejection: a defined status other than <see cref="MoveStatus.Ok"/>.</param>
-    /// <returns>
-    /// A result with the given status and both <see cref="Captured"/> and <see cref="SelfCaptured"/>
-    /// equal to <c>0</c>.
-    /// </returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="status"/> is <see cref="MoveStatus.Ok"/> or not a defined <see cref="MoveStatus"/> value.
-    /// </exception>
+    /// <summary>The result of a move refused for <paramref name="status"/>.</summary>
+    /// <param name="status">A defined status other than <see cref="MoveStatus.Ok"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The status is out of range.</exception>
     public static MoveResult Rejected(MoveStatus status)
     {
         if (status == MoveStatus.Ok || !Enum.IsDefined(status))

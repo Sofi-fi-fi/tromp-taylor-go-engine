@@ -1,37 +1,24 @@
 namespace GoEngine.Core;
 
-/// <summary>
-/// The rule parameters of one game: board size, komi and whether suicide is allowed.
-/// Instances are compared by value.
-/// </summary>
+/// <summary>The rule parameters of one game, compared by value.</summary>
 /// <remarks>
-/// The properties are get-only and the constructor is private, so a <c>with</c> expression
-/// cannot produce a rule set that bypasses the checks in <see cref="Create"/>.
+/// The constructor is private and the properties are get-only, so a <c>with</c> expression
+/// cannot bypass the checks in <see cref="Create"/>.
 /// </remarks>
 public sealed record RuleSet
 {
-    /// <summary>
-    /// The smallest board size accepted by <see cref="Create"/>.
-    /// </summary>
+    /// <summary>The smallest board size accepted by <see cref="Create"/>.</summary>
     public const int MinSize = 9;
 
-    /// <summary>
-    /// The largest board size accepted by <see cref="Create"/> and <see cref="CreateForTests"/>.
-    /// </summary>
+    /// <summary>The largest board size accepted by any factory.</summary>
     public const int MaxSize = 19;
 
-    /// <summary>
-    /// The smallest board size accepted by <see cref="CreateForTests"/>.
-    /// </summary>
     internal const int MinTestSize = 2;
 
-    /// <summary>
-    /// The largest absolute value of <see cref="Komi"/> accepted by <see cref="Create"/> and
-    /// <see cref="CreateForTests"/>: the number of points on the largest board.
-    /// </summary>
+    /// <summary>The largest absolute <see cref="Komi"/>: the points on the largest board.</summary>
     /// <remarks>
-    /// A larger komi cannot change the outcome (who wins, or a draw), and the bound keeps
-    /// score arithmetic far from <see cref="decimal"/> overflow.
+    /// A larger komi cannot change who wins, and the bound keeps score arithmetic far from
+    /// <see cref="decimal"/> overflow.
     /// </remarks>
     public const decimal MaxAbsKomi = MaxSize * MaxSize;
 
@@ -42,80 +29,34 @@ public sealed record RuleSet
         AllowSuicide = allowSuicide;
     }
 
-    /// <summary>
-    /// The number of lines in each direction of the square board.
-    /// </summary>
+    /// <summary>The number of lines on each side of the square board.</summary>
     public int Size { get; }
 
-    /// <summary>
-    /// The points added to White's score; may be zero, negative or fractional, and its
-    /// absolute value is at most <see cref="MaxAbsKomi"/>.
-    /// </summary>
+    /// <summary>The points added to White's score; may be zero, negative or fractional.</summary>
+    /// <remarks>Decimal, so a komi such as <c>6.4</c> and scores built on it stay exact.</remarks>
     public decimal Komi { get; }
 
-    /// <summary>
-    /// Whether a move that leaves the player's own chain without liberties is legal.
-    /// </summary>
+    /// <summary>Whether a move that leaves its own chain without liberties is legal.</summary>
     public bool AllowSuicide { get; }
 
-    /// <summary>
-    /// Creates a rule set for a board from <see cref="MinSize"/> to <see cref="MaxSize"/> lines.
-    /// </summary>
-    /// <param name="size">The board size, from <see cref="MinSize"/> to <see cref="MaxSize"/> inclusive.</param>
-    /// <param name="komi">The points added to White's score, with absolute value at most <see cref="MaxAbsKomi"/>.</param>
-    /// <param name="allowSuicide">Whether suicide moves are legal.</param>
-    /// <returns>A rule set with the given parameters.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="size"/> is less than <see cref="MinSize"/> or greater than <see cref="MaxSize"/>,
-    /// or the absolute value of <paramref name="komi"/> is greater than <see cref="MaxAbsKomi"/>.
-    /// <paramref name="size"/> is checked before <paramref name="komi"/>, so when both are out of range
-    /// the exception names <paramref name="size"/>.
-    /// </exception>
+    /// <summary>The only public way to get a rule set; it validates size and komi.</summary>
+    /// <remarks><paramref name="size"/> is checked before <paramref name="komi"/>.</remarks>
+    /// <param name="size">From <see cref="MinSize"/> to <see cref="MaxSize"/>.</param>
+    /// <param name="komi">Absolute value at most <see cref="MaxAbsKomi"/>.</param>
+    /// <param name="allowSuicide">The value of <see cref="AllowSuicide"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An argument is out of range.</exception>
     public static RuleSet Create(int size, decimal komi = 7.5m, bool allowSuicide = false)
     {
         return CreateValidated(size, MinSize, komi, allowSuicide);
     }
 
-    /// <summary>
-    /// Creates a rule set for a board from <see cref="MinTestSize"/> to <see cref="MaxSize"/> lines.
-    /// </summary>
-    /// <remarks>
-    /// Rule sets for boards below <see cref="MinSize"/> cannot be created through
-    /// <see cref="Create"/>; they exist for tests that run both engines, including Reference, on
-    /// small boards. <see cref="PositionSnapshot"/> accepts such sizes for the same reason.
-    /// </remarks>
-    /// <param name="size">The board size, from <see cref="MinTestSize"/> to <see cref="MaxSize"/> inclusive.</param>
-    /// <param name="komi">The points added to White's score, with absolute value at most <see cref="MaxAbsKomi"/>.</param>
-    /// <param name="allowSuicide">Whether suicide moves are legal.</param>
-    /// <returns>A rule set with the given parameters.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="size"/> is less than <see cref="MinTestSize"/> or greater than <see cref="MaxSize"/>,
-    /// or the absolute value of <paramref name="komi"/> is greater than <see cref="MaxAbsKomi"/>.
-    /// <paramref name="size"/> is checked before <paramref name="komi"/>, so when both are out of range
-    /// the exception names <paramref name="size"/>.
-    /// </exception>
+    // Boards from MinTestSize exist only so that tests can run both engines on small boards.
     internal static RuleSet CreateForTests(int size, decimal komi = 7.5m, bool allowSuicide = false)
     {
         return CreateValidated(size, MinTestSize, komi, allowSuicide);
     }
 
-    /// <summary>
-    /// Checks <paramref name="size"/> against <paramref name="minSize"/> and <see cref="MaxSize"/>,
-    /// then <paramref name="komi"/> against <see cref="MaxAbsKomi"/>, and creates the rule set.
-    /// </summary>
-    /// <remarks>
-    /// The parameters are named like the factories' parameters and passed to the throw helpers
-    /// directly, because the helpers take <see cref="ArgumentException.ParamName"/> from the
-    /// argument expression.
-    /// </remarks>
-    /// <param name="size">The board size to check.</param>
-    /// <param name="minSize">The smallest board size the calling factory accepts.</param>
-    /// <param name="komi">The komi to check.</param>
-    /// <param name="allowSuicide">Whether suicide moves are legal.</param>
-    /// <returns>A rule set with the given parameters.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// <paramref name="size"/> or <paramref name="komi"/> is out of range.
-    /// </exception>
+    // Parameters are named like the factories' ones: the throw helpers take ParamName from them.
     private static RuleSet CreateValidated(int size, int minSize, decimal komi, bool allowSuicide)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(size, minSize);
