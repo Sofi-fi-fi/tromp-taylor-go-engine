@@ -82,6 +82,40 @@ public abstract class MoveContractTests
         Assert.Equal(before, engine.Snapshot());
     }
 
+    private static void AssertRejected(IGoEngine engine, string call, MoveStatus status)
+    {
+        PositionSnapshot before = engine.Snapshot();
+
+        Assert.Equal(MoveResult.Rejected(status), Call(engine, call));
+        Assert.Equal(before, engine.Snapshot());
+    }
+
+    // Black to move. (0,0) is suicide for Black, (2,1) is occupied, (3,3) is empty.
+    private static PositionSnapshot EndgameBoard()
+    {
+        return Diagram.Parse(
+            ".O...",
+            "O.X..",
+            ".....",
+            ".....",
+            ".....");
+    }
+
+    private static MoveResult Call(IGoEngine engine, string call)
+    {
+        return call switch
+        {
+            "Play empty" => engine.Play(new Point(3, 3)),
+            "Play occupied" => engine.Play(new Point(2, 1)),
+            "Play outside" => engine.Play(new Point(-1, 0)),
+            "Play suicide" => engine.Play(new Point(0, 0)),
+            "Play with colour" => engine.Play(new Point(3, 3), Color.White),
+            "Pass" => engine.Pass(),
+            "Pass with colour" => engine.Pass(Color.White),
+            _ => throw new ArgumentOutOfRangeException(nameof(call), call, "Unknown call."),
+        };
+    }
+
     private static void AssertPoints(IEnumerable<Point> expected, IReadOnlySet<Point> actual)
     {
         Assert.Equal(Sorted(expected), Sorted(actual));
@@ -549,5 +583,160 @@ public abstract class MoveContractTests
 
         AssertPoints([new(1, 0), new(2, 0), new(0, 1), new(3, 1), new(1, 2), new(2, 2)], before);
         Assert.DoesNotContain(new Point(1, 0), engine.GetLiberties(new Point(1, 1)));
+    }
+
+    // Rule 6: a turn is either a pass or a move; a pass colours nothing, so the board and both
+    // removed counters stay. Rule 5: the turn alternates. Rule 8: the pass starts a run of passes.
+    [Fact]
+    public void Pass_MidGame_ChangesOnlyTurnAndPassCount()
+    {
+        PositionSnapshot board = EndgameBoard();
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.Equal(
+            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White),
+            after);
+        Assert.False(after.IsOver);
+    }
+
+    // Rule 6 and IGoEngine: an explicit colour may pass; the turn goes to the opposite of that colour.
+    [Fact]
+    public void PassWhiteOnFreshBoard_TurnGoesToBlack()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass(Color.White));
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.Equal(Color.Black, after.ToMove);
+        Assert.Equal(1, after.ConsecutivePasses);
+    }
+
+    // Rule 5 and IGoEngine: without a colour the player to move passes, here White; mirrors
+    // WhiteToMove_PlayWithoutColour_CapturesForWhite.
+    [Fact]
+    public void WhiteToMove_PassWithoutColour_PassesForWhite()
+    {
+        PositionSnapshot board = EndgameBoard();
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White));
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+
+        Assert.Equal(
+            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.Black),
+            engine.Snapshot());
+    }
+
+    // Rule 8: the game ends after two consecutive passes. IGoEngine: of any colours.
+    [Theory]
+    [InlineData(Color.Black, Color.White)]
+    [InlineData(Color.Black, Color.Black)]
+    [InlineData(Color.White, Color.Black)]
+    [InlineData(Color.White, Color.White)]
+    public void TwoConsecutivePasses_EndGame(Color first, Color second)
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass(first));
+        Assert.False(engine.Snapshot().IsOver);
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass(second));
+        PositionSnapshot after = engine.Snapshot();
+        Assert.True(after.IsOver);
+        Assert.Equal(2, after.ConsecutivePasses);
+    }
+
+    // Rule 8: only consecutive passes end the game, so a move between them breaks the run.
+    [Fact]
+    public void PassPlayPass_DoesNotEndGame()
+    {
+        IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
+
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+
+        PositionSnapshot after = engine.Snapshot();
+        Assert.False(after.IsOver);
+        Assert.Equal(1, after.ConsecutivePasses);
+    }
+
+    // Rule 8: after the game has ended there are no more turns. IGoEngine: GameOver is checked
+    // first, before OutOfBounds, Occupied and Suicide, and a rejection changes nothing.
+    [Theory]
+    [InlineData("Play empty")]
+    [InlineData("Play occupied")]
+    [InlineData("Play outside")]
+    [InlineData("Play suicide")]
+    [InlineData("Play with colour")]
+    [InlineData("Pass")]
+    [InlineData("Pass with colour")]
+    public void LoadedGameOver_EveryTurnIsRejected(string call)
+    {
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(EndgameBoard(), consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+
+        AssertRejected(engine, call, MoveStatus.GameOver);
+    }
+
+    // Rule 8: see LoadedGameOver_EveryTurnIsRejected; here the game ends through two real passes.
+    [Theory]
+    [InlineData("Play empty")]
+    [InlineData("Play occupied")]
+    [InlineData("Play outside")]
+    [InlineData("Play suicide")]
+    [InlineData("Play with colour")]
+    [InlineData("Pass")]
+    [InlineData("Pass with colour")]
+    public void GameEndedByTwoPasses_EveryTurnIsRejected(string call)
+    {
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(EndgameBoard(), consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+
+        AssertRejected(engine, call, MoveStatus.GameOver);
+    }
+
+    // Rule 1: there are only two players. IGoEngine: an invalid argument throws before any rule
+    // is checked, also after the game has ended.
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(3, 0)]
+    [InlineData(0, 2)]
+    [InlineData(3, 2)]
+    public void PassUndefinedColour_Throws(int color, int consecutivePasses)
+    {
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(EndgameBoard(), consecutivePasses, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        PositionSnapshot before = engine.Snapshot();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => engine.Pass((Color)color));
+        Assert.Equal(before, engine.Snapshot());
+    }
+
+    // IGoEngine: see PassUndefinedColour_Throws; an undefined colour is not reported as GameOver.
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void PlayUndefinedColour_AfterGameOver_Throws(int color)
+    {
+        IGoEngine engine = CreateEngine(
+            RuleSet.CreateForTests(5),
+            WithState(EndgameBoard(), consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        PositionSnapshot before = engine.Snapshot();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => engine.Play(new Point(3, 3), (Color)color));
+        Assert.Equal(before, engine.Snapshot());
     }
 }
