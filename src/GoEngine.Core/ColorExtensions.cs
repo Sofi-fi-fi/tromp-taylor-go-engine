@@ -20,7 +20,12 @@ public static class ColorExtensions
     /// </exception>
     public static Color Opposite(this Color color)
     {
-        throw new NotImplementedException();
+        return color switch
+        {
+            Color.Black => Color.White,
+            Color.White => Color.Black,
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, "Undefined color."),
+        };
     }
 
     /// <summary>
@@ -36,6 +41,11 @@ public static class ColorExtensions
     /// </exception>
     public static PointState ToPointState(this Color color)
     {
-        throw new NotImplementedException();
+        return color switch
+        {
+            Color.Black => PointState.Black,
+            Color.White => PointState.White,
+            _ => throw new ArgumentOutOfRangeException(nameof(color), color, "Undefined color."),
+        };
     }
 }
