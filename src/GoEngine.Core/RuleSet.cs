@@ -80,8 +80,9 @@ public sealed record RuleSet
     /// Creates a rule set for a board from <see cref="MinTestSize"/> to <see cref="MaxSize"/> lines.
     /// </summary>
     /// <remarks>
-    /// Boards below <see cref="MinSize"/> exist only for exhaustive tests on small boards;
-    /// they are not part of the public contract.
+    /// Rule sets for boards below <see cref="MinSize"/> cannot be created through
+    /// <see cref="Create"/>; they exist for tests that run both engines, including Reference, on
+    /// small boards. <see cref="PositionSnapshot"/> accepts such sizes for the same reason.
     /// </remarks>
     /// <param name="size">The board size, from <see cref="MinTestSize"/> to <see cref="MaxSize"/> inclusive.</param>
     /// <param name="komi">The points added to White's score, with absolute value at most <see cref="MaxAbsKomi"/>.</param>
