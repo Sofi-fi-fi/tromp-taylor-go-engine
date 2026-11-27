@@ -6,7 +6,9 @@ namespace GoEngine.Core;
 // Placement only colours a point and updates chains: deciding captures and suicide is
 // MoveResolver's job, so a chain is allowed to reach zero liberties here.
 // All state is the board colour plus four per-point arrays, changed only by Place (colour and
-// arrays) and Union (arrays), so a later undo journal can record exactly those writes.
+// arrays), Union (arrays) and RemoveChain (colour of the removed stones, liberty sets of the
+// neighbouring chains, and the removed chain's own liberty set), so a later undo journal can
+// record exactly those writes.
 internal sealed class GroupTracker
 {
     private readonly Board _board;
@@ -125,10 +127,43 @@ internal sealed class GroupTracker
         return _liberties[Root(point)]!;
     }
 
-    // Stub for the chain removal tests; implemented in the next group.
+    // Removes the whole chain containing point and returns its stone count.
     public int RemoveChain(int point)
     {
-        throw new NotImplementedException();
+        int root = Root(point);
+
+        // Two walks of the ring, which stays intact: first empty every stone, then give the
+        // freed points to the neighbours. Emptying first means a removed neighbour is skipped,
+        // and the liberty sets add each freed point to a chain once however many removed
+        // stones it touches.
+        int removed = 0;
+        int current = point;
+        do
+        {
+            _board[current] = PointState.Empty;
+            removed++;
+            current = _next[current];
+        }
+        while (current != point);
+
+        do
+        {
+            foreach (int n in _board.Neighbours(current))
+            {
+                if (_board[n] != PointState.Empty)
+                {
+                    _liberties[Root(n)]!.Add(current);
+                }
+            }
+
+            current = _next[current];
+        }
+        while (current != point);
+
+        // Parent, size and ring entries of freed points are left stale: every read checks the
+        // board first, and Place reinitialises them.
+        _liberties[root] = null;
+        return removed;
     }
 
     // Joins two distinct roots; the larger chain's root stays root and keeps its liberty set.
