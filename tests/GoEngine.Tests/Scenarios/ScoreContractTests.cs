@@ -101,6 +101,34 @@ public abstract class ScoreContractTests
         Assert.Equal(new ScoreResult(1, 21, 3, 7.5m), engine.Score());
     }
 
+    // Rule 9 on the board after play: Black captures White's (1,0), both pass, and the score counts
+    // the current coloring: Black 11 stones and the 4 empty points of column 1, White 5 stones,
+    // column 3 neutral. Rule 10 and comment 10: with komi 10 the scores are equal, a tie. The loaded
+    // board would score 10, 6 and 9. Rejects scoring the loaded or initial coloring, and ignoring
+    // komi in the comparison.
+    [Fact]
+    public void ScoreAfterCaptureAndTwoPasses_CountsCurrentBoard_Tie()
+    {
+        IGoEngine engine = Load(
+            [
+                "XOX.O",
+                "X.X.O",
+                "X.X.O",
+                "X.X.O",
+                "X.X.O",
+            ],
+            komi: 10m);
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(1, 1)));
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+        Assert.Equal(MoveResult.Success(0), engine.Pass());
+        Assert.True(engine.Snapshot().IsOver);
+
+        ScoreResult score = engine.Score();
+
+        Assert.Equal(new ScoreResult(15, 5, 5, 10m), score);
+        Assert.Null(score.Winner);
+    }
+
     // IGoEngine: Score may be called at any time, before or after the game ends, gives the same area
     // score and changes nothing; the game goes on after it. Rejects scoring only finished games
     // and a Score that changes the state.

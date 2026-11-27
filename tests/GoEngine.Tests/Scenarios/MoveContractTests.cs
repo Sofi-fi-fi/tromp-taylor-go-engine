@@ -368,6 +368,59 @@ public abstract class MoveContractTests
         AssertPoints([new(1, 1)], engine.GetLiberties(new Point(2, 1)));
     }
 
+    // Rule 7: the played stone joins the Black chain (0,0)-(1,0), whose only liberty it fills, and
+    // touches no empty point; clearing White's (0,1) gives the merged chain its liberty back, so the
+    // move stands. Unlike CaptureBeforeSuicide_PlayedStoneStays the freed chain has several stones.
+    // Rejects judging suicide, or keeping the merged chain's liberties, from the board before the
+    // capture: (0,0) is not next to the played point, yet its chain must gain (0,1).
+    [Fact]
+    public void CaptureFreesMergedOwnChain_MoveStands()
+    {
+        IGoEngine engine = Load(
+            "XXO..",
+            "O.O..",
+            "XO...",
+            ".....",
+            ".....");
+
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(1, 1)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            "XXO..",
+            ".XO..",
+            "XO...",
+            ".....",
+            ".....");
+        AssertPoints([new(0, 0), new(1, 0), new(1, 1)], engine.GetChain(new Point(1, 1)));
+        AssertPoints([new(0, 1)], engine.GetLiberties(new Point(0, 0)));
+    }
+
+    // Rule 7: every opponent string without liberties is cleared, whichever side of the played stone
+    // it lies on. Here four White stones are captured above, left, right and below. Rejects a capture
+    // loop that skips a direction: no other test captures downward.
+    [Fact]
+    public void CaptureInFourDirections_RemovesAllFourStones()
+    {
+        IGoEngine engine = Load(
+            "..X..",
+            ".XOX.",
+            "XO.OX",
+            ".XOX.",
+            "..X..");
+
+        Assert.Equal(MoveResult.Success(4), engine.Play(new Point(2, 2)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            "..X..",
+            ".X.X.",
+            "X.X.X",
+            ".X.X.",
+            "..X..");
+        AssertPoints([new(2, 1), new(1, 2), new(3, 2), new(2, 3)], engine.GetLiberties(new Point(2, 2)));
+    }
+
     // Comment 7: a move that would clear the mover's own colour is suicide; comment 4: no string
     // without liberties may remain, so with suicide not allowed the move is rejected.
     [Fact]
