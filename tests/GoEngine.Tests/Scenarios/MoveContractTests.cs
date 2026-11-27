@@ -170,7 +170,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(x, y), MoveStatus.Occupied);
     }
 
-    // Rule 7: after colouring, the opponent colour is cleared; the freed point becomes a liberty.
+    // Rule 7: after colouring, the opponent colour is cleared; the freed point becomes a liberty of
+    // every string next to it, not only the mover's. Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureInMiddle_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -191,9 +192,13 @@ public abstract class MoveContractTests : EngineContractTests
             "..X..",
             ".....");
         AssertPoints([new(3, 1), new(2, 2), new(4, 2), new(3, 3)], engine.GetLiberties(new Point(3, 2)));
+        AssertPoints([new(2, 0), new(1, 1), new(3, 1), new(2, 2)], engine.GetLiberties(new Point(2, 1)));
+        AssertPoints([new(1, 1), new(0, 2), new(2, 2), new(1, 3)], engine.GetLiberties(new Point(1, 2)));
+        AssertPoints([new(2, 2), new(1, 3), new(3, 3), new(2, 4)], engine.GetLiberties(new Point(2, 3)));
     }
 
-    // Rule 7: clearing on the edge, where the captured stone has only three neighbours.
+    // Rule 7: clearing on the edge, where the captured stone has only three neighbours; both other
+    // Black strings next to it gain the freed point. Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureOnEdge_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -214,9 +219,12 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....");
         AssertPoints([new(2, 0), new(4, 0), new(3, 1)], engine.GetLiberties(new Point(3, 0)));
+        AssertPoints([new(0, 0), new(2, 0), new(1, 1)], engine.GetLiberties(new Point(1, 0)));
+        AssertPoints([new(2, 0), new(1, 1), new(3, 1), new(2, 2)], engine.GetLiberties(new Point(2, 1)));
     }
 
-    // Rule 7: clearing in the corner, where the captured stone has only two neighbours.
+    // Rule 7: clearing in the corner, where the captured stone has only two neighbours; the other
+    // Black stone next to it gains the freed point. Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureInCorner_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -237,10 +245,12 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....");
         AssertPoints([new(0, 0), new(1, 1), new(0, 2)], engine.GetLiberties(new Point(0, 1)));
+        AssertPoints([new(0, 0), new(2, 0), new(1, 1)], engine.GetLiberties(new Point(1, 0)));
     }
 
     // Rule 7: clearing the opponent colour empties every opponent string that does not reach empty,
-    // so one move removes both strings and Captured counts all their stones.
+    // so one move removes both strings and Captured counts all their stones. Every Black string next
+    // to a cleared point gains it. Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureOfTwoChains_CapturedIsSumOfBoth()
     {
@@ -260,11 +270,16 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....",
             ".....");
+        AssertPoints([new(1, 0), new(3, 0), new(2, 1)], engine.GetLiberties(new Point(2, 0)));
+        AssertPoints([new(0, 0), new(1, 0), new(2, 1), new(0, 2), new(1, 2)], engine.GetLiberties(new Point(0, 1)));
+        AssertPoints([new(3, 0), new(2, 1), new(4, 1), new(3, 2)], engine.GetLiberties(new Point(3, 1)));
+        AssertPoints([new(3, 0), new(4, 1)], engine.GetLiberties(new Point(4, 0)));
     }
 
     // Rule 7 and comment 7: the opponent colour is cleared before the mover's own, so a stone with
     // no empty neighbour that captures is not suicide: rejected neither without suicide allowed
-    // nor self-captured with it, since the own chain never lacks liberties.
+    // nor self-captured with it, since the own chain never lacks liberties. The other Black strings
+    // next to the cleared point gain it too. Rejects returning liberties only to the mover's chain.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -290,13 +305,17 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....");
         AssertPoints([new(1, 1)], engine.GetLiberties(new Point(2, 1)));
+        AssertPoints([new(0, 0), new(1, 1)], engine.GetLiberties(new Point(1, 0)));
+        AssertPoints([new(0, 0), new(1, 1), new(0, 2)], engine.GetLiberties(new Point(0, 1)));
+        AssertPoints([new(1, 1), new(0, 2), new(1, 3)], engine.GetLiberties(new Point(1, 2)));
     }
 
     // Rule 7: the played stone joins the Black chain (0,0)-(1,0), whose only liberty it fills, and
     // touches no empty point; clearing White's (0,1) gives the merged chain its liberty back, so the
     // move stands. Unlike CaptureBeforeSuicide_PlayedStoneStays the freed chain has several stones.
     // Rejects judging suicide, or keeping the merged chain's liberties, from the board before the
-    // capture: (0,0) is not next to the played point, yet its chain must gain (0,1).
+    // capture: (0,0) is not next to the played point, yet its chain must gain (0,1); so must the
+    // separate Black stone (0,2). Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureFreesMergedOwnChain_MoveStands()
     {
@@ -318,11 +337,13 @@ public abstract class MoveContractTests : EngineContractTests
             ".....");
         AssertPoints([new(0, 0), new(1, 0), new(1, 1)], engine.GetChain(new Point(1, 1)));
         AssertPoints([new(0, 1)], engine.GetLiberties(new Point(0, 0)));
+        AssertPoints([new(0, 1), new(0, 3)], engine.GetLiberties(new Point(0, 2)));
     }
 
     // Rule 7: every opponent string without liberties is cleared, whichever side of the played stone
     // it lies on. Here four White stones are captured above, left, right and below. Rejects a capture
-    // loop that skips a direction: no other test captures downward.
+    // loop that skips a direction: no other test captures downward. Every Black stone next to a
+    // cleared point gains it. Rejects returning liberties only to the mover's chain.
     [Fact]
     public void CaptureInFourDirections_RemovesAllFourStones()
     {
@@ -343,6 +364,46 @@ public abstract class MoveContractTests : EngineContractTests
             ".X.X.",
             "..X..");
         AssertPoints([new(2, 1), new(1, 2), new(3, 2), new(2, 3)], engine.GetLiberties(new Point(2, 2)));
+        AssertPoints([new(1, 0), new(3, 0), new(2, 1)], engine.GetLiberties(new Point(2, 0)));
+        AssertPoints([new(1, 0), new(0, 1), new(2, 1), new(1, 2)], engine.GetLiberties(new Point(1, 1)));
+        AssertPoints([new(3, 0), new(2, 1), new(4, 1), new(3, 2)], engine.GetLiberties(new Point(3, 1)));
+        AssertPoints([new(0, 1), new(1, 2), new(0, 3)], engine.GetLiberties(new Point(0, 2)));
+        AssertPoints([new(4, 1), new(3, 2), new(4, 3)], engine.GetLiberties(new Point(4, 2)));
+        AssertPoints([new(1, 2), new(0, 3), new(2, 3), new(1, 4)], engine.GetLiberties(new Point(1, 3)));
+        AssertPoints([new(3, 2), new(2, 3), new(4, 3), new(3, 4)], engine.GetLiberties(new Point(3, 3)));
+        AssertPoints([new(2, 3), new(1, 4), new(3, 4)], engine.GetLiberties(new Point(2, 4)));
+    }
+
+    // Rule 3: stones of one colour connected orthogonally form one string, so a stone placed between
+    // four separate Black strings (above, below, left and right) joins all of them into one string of
+    // nine stones whose liberties are every empty point next to any of them. Querying from each arm
+    // checks that no arm stays a separate string. Rejects a merge loop that skips one neighbour.
+    [Fact]
+    public void MoveJoiningChainsOnAllFourSides_MergesThemIntoOneChain()
+    {
+        IGoEngine engine = Load(
+            "..X..",
+            "..X..",
+            "XX.XX",
+            "..X..",
+            "..X..");
+
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
+
+        Point[] cross =
+        [
+            new(2, 0), new(2, 1), new(0, 2), new(1, 2), new(2, 2), new(3, 2), new(4, 2), new(2, 3), new(2, 4),
+        ];
+        Point[] liberties =
+        [
+            new(1, 0), new(3, 0), new(0, 1), new(1, 1), new(3, 1), new(4, 1),
+            new(0, 3), new(1, 3), new(3, 3), new(4, 3), new(1, 4), new(3, 4),
+        ];
+        foreach (Point query in new Point[] { new(2, 2), new(2, 0), new(0, 2), new(4, 2), new(2, 4) })
+        {
+            AssertPoints(cross, engine.GetChain(query));
+            AssertPoints(liberties, engine.GetLiberties(query));
+        }
     }
 
     // Comment 7: a move that would clear the mover's own colour is suicide; comment 4: no string
@@ -377,6 +438,8 @@ public abstract class MoveContractTests : EngineContractTests
     // Rule 7: with suicide allowed, the mover's own string is cleared, the played stone included,
     // and the turn passes. Only multi-stone strings: a single-stone suicide recreates the current
     // colouring and is Superko (SuperkoContractTests.SingleStoneSuicide_IsSuperkoIfAllowedElseSuicide).
+    // The White strings next to the cleared points gain them. Rejects returning liberties only to the
+    // mover's chain.
     [Fact]
     public void SuicideInCorner_Allowed_SelfCapturesChain()
     {
@@ -398,9 +461,13 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....");
         Assert.Equal(Color.White, after.ToMove);
+        AssertPoints([new(1, 0), new(3, 0), new(2, 1)], engine.GetLiberties(new Point(2, 0)));
+        AssertPoints([new(0, 0), new(1, 0), new(2, 1), new(0, 2), new(1, 2)], engine.GetLiberties(new Point(0, 1)));
     }
 
-    // Rule 7: see SuicideInCorner_Allowed_SelfCapturesChain; the played stone joins two own stones.
+    // Rule 7: see SuicideInCorner_Allowed_SelfCapturesChain; the played stone joins two own stones,
+    // and all four White strings gain the cleared points. Rejects returning liberties only to the
+    // mover's chain.
     [Fact]
     public void SuicideInMiddle_Allowed_SelfCapturesChain()
     {
@@ -422,6 +489,13 @@ public abstract class MoveContractTests : EngineContractTests
             ".....",
             ".....");
         Assert.Equal(Color.White, after.ToMove);
+        AssertPoints(
+            [new(0, 0), new(4, 0), new(1, 1), new(2, 1), new(3, 1)], engine.GetLiberties(new Point(2, 0)));
+        AssertPoints([new(0, 0), new(1, 1), new(0, 2)], engine.GetLiberties(new Point(0, 1)));
+        AssertPoints([new(4, 0), new(3, 1), new(4, 2)], engine.GetLiberties(new Point(4, 1)));
+        AssertPoints(
+            [new(1, 1), new(2, 1), new(3, 1), new(0, 2), new(4, 2), new(1, 3), new(2, 3), new(3, 3)],
+            engine.GetLiberties(new Point(2, 2)));
     }
 
     // Rule 7 and IGoEngine: captured stones are added to the opponent's removed counter; the
@@ -451,7 +525,8 @@ public abstract class MoveContractTests : EngineContractTests
     }
 
     // Rule 5 and rule 7: without a colour White, the player to move, captures; Black's counter grows
-    // and the turn goes to Black.
+    // and the turn goes to Black. Every White string next to a cleared point gains it. Rejects
+    // returning liberties only to the mover's chain.
     [Fact]
     public void WhiteToMove_PlayWithoutColour_CapturesForWhite()
     {
@@ -480,6 +555,9 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(7, after.BlackStonesRemoved);
         Assert.Equal(6, after.WhiteStonesRemoved);
         Assert.Equal(Color.Black, after.ToMove);
+        AssertPoints([new(0, 0), new(1, 0), new(2, 1), new(0, 2), new(1, 2)], engine.GetLiberties(new Point(0, 1)));
+        AssertPoints([new(3, 0), new(2, 1), new(4, 1), new(3, 2)], engine.GetLiberties(new Point(3, 1)));
+        AssertPoints([new(3, 0), new(4, 1)], engine.GetLiberties(new Point(4, 0)));
     }
 
     // Rule 7 and IGoEngine: self-captured stones are added to the mover's own removed counter.
