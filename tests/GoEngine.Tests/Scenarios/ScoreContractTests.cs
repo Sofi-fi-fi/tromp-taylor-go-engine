@@ -12,10 +12,8 @@ public abstract class ScoreContractTests : EngineContractTests
         return Load(rows, consecutivePasses: consecutivePasses, blackStonesRemoved: 4, whiteStonesRemoved: 6, komi: komi);
     }
 
-    // Rule 9: no stones and one empty region reaching no colour, so both areas are 0 and all 25 points
-    // are neutral. Rule 10 with komi (comment 10): komi alone decides; integer komi 0 is a tie
-    // (Winner null). Rejects counting an empty region that reaches nothing for a player, and
-    // ignoring or negating komi.
+    // Rules 9 and 10, comment 10.
+    // No stones; all 25 points reach no colour: 0 : 0, 25 neutral, so komi alone decides.
     [Theory]
     [InlineData(7.5, Color.White, 7.5)]
     [InlineData(0, null, 0)]
@@ -31,10 +29,8 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal((decimal)margin, score.Margin);
     }
 
-    // Rule 9: stones count as points of their colour; the empty column between the walls reaches both
-    // colours and is neutral; the two columns right of the white wall reach only White and count for
-    // it. Rejects giving a two-colour region to the first colour found, and counting stones of one
-    // colour only.
+    // Rule 9.
+    // Black 5 stones; White 5 stones + 10 empty (columns 3-4); column 1 reaches both: 5 neutral.
     [Fact]
     public void RegionReachingBothColours_IsNeutral()
     {
@@ -50,10 +46,9 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal(new ScoreResult(5, 15, 5, 7.5m), engine.Score());
     }
 
-    // Rule 9: the two-point region reaching only Black counts for Black, the one-point region reaching
-    // only White for White, and the large region reaching both is neutral: Black 4 stones + 2, White
-    // 3 stones + 1. The eyes differ in size, so swapped owners would give 5 and 5. Rejects swapping
-    // the colours of eyes and counting only the largest region.
+    // Rule 9.
+    // Black 4 stones + 2 (eye at top left); White 3 stones + 1 (top right); rows 2-4: 15 neutral.
+    // Catches: swapped eye owners (the eyes differ in size, so a swap changes both scores).
     [Fact]
     public void RegionsReachingOneColour_CountForIt()
     {
@@ -73,11 +68,8 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal(Color.Black, score.Winner);
     }
 
-    // Rule 3: reaching goes along vertical or horizontal paths only, so the empty corner (0,0), whose
-    // orthogonal neighbours are both Black, reaches only Black although the White stone (1,1) touches
-    // it diagonally; rule 9 counts it for Black: Black 2 stones + 1, White 1 stone, 21 neutral. With
-    // diagonal reach the corner would reach White too and be neutral (2, 1, 22). Rejects 8-connected
-    // scoring.
+    // Rules 3 and 9.
+    // Black 2 stones + 1 (corner (0, 0)); White 1 stone; the other 21 points reach both.
     [Fact]
     public void RegionTouchingOpponentOnlyDiagonally_CountsForOrthogonalColour()
     {
@@ -93,9 +85,8 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal(new ScoreResult(3, 1, 21, 7.5m), engine.Score());
     }
 
-    // Rule 9 literally, with no dead-stone removal: the black stone inside White's corner makes that
-    // corner region reach Black too, so it is neutral, and the stone counts for Black. Rejects
-    // treating surrounded stones as dead or ignoring them when a region is scored.
+    // Rule 9: no dead-stone removal.
+    // Black 1 stone; White 5 stones + 16 empty outside the corner; (1,0), (0,1), (1,1) reach both: 3 neutral.
     [Fact]
     public void DeadLookingStoneInsideWhiteArea_MakesRegionNeutral()
     {
@@ -111,11 +102,9 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal(new ScoreResult(1, 21, 3, 7.5m), engine.Score());
     }
 
-    // Rule 9 on the board after play: Black captures White's (1,0), both pass, and the score counts
-    // the current coloring: Black 11 stones and the 4 empty points of column 1, White 5 stones,
-    // column 3 neutral. Rule 10 and comment 10: with komi 10 the scores are equal, a tie. The loaded
-    // board would score 10, 6 and 9. Rejects scoring the loaded or initial coloring, and ignoring
-    // komi in the comparison.
+    // Rules 9 and 10, comment 10.
+    // Black 11 stones + 4 empty in column 1 = 15; White 5 stones + komi 10 = 15; column 3: 5 neutral.
+    // Catches: scoring the loaded coloring (10, 6 and 9) instead of the current one.
     [Fact]
     public void ScoreAfterCaptureAndTwoPasses_CountsCurrentBoard_Tie()
     {
@@ -139,9 +128,8 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Null(score.Winner);
     }
 
-    // IGoEngine: Score may be called at any time, before or after the game ends, gives the same area
-    // score and changes nothing; the game goes on after it. Rejects scoring only finished games
-    // and a Score that changes the state.
+    // IGoEngine.
+    // As in RegionReachingBothColours_IsNeutral: Black 5, White 5 + 10, column 1 neutral.
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

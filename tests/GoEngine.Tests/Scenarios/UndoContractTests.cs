@@ -31,8 +31,7 @@ public abstract class UndoContractTests : EngineContractTests
         ];
     }
 
-    // IGoEngine: Undo returns false when no Play or Pass was accepted, and changes nothing.
-    // Rejects an undo that reports success or resets the game.
+    // IGoEngine.
     [Fact]
     public void FreshGame_Undo_ReturnsFalse_StateUnchanged()
     {
@@ -43,10 +42,8 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // IGoEngine: a loaded position has no accepted Play or Pass behind it, so there is nothing to
-    // undo; after one move, undo returns to the loaded state exactly (White to move, pass count 1,
-    // removed counters 4 and 6), and a second undo finds nothing. Rejects an undo that goes back to
-    // the empty board, and rebuilding the bottom of the undo stack from defaults.
+    // IGoEngine.
+    // Catches: an undo back to the empty board, or a stack bottom rebuilt from defaults.
     [Fact]
     public void LoadedPosition_UndoStopsAtLoadedState()
     {
@@ -65,9 +62,7 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(loaded, engine);
     }
 
-    // Rule 7 and IGoEngine: undo of a capture puts the three captured stones back and restores the
-    // White removed counter and the pass count of 1 that the move had reset. Rejects restoring the
-    // board only, subtracting from the wrong counter, and setting the pass count to 0.
+    // Rule 7 and IGoEngine.
     [Fact]
     public void UndoCapture_RestoresStonesCountersAndPassCount()
     {
@@ -89,8 +84,27 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // Rule 7 and IGoEngine: undo of an allowed suicide puts the mover's own stones back and restores
-    // the mover's removed counter. Rejects undo that handles only opponent captures.
+    // Rule 7 and IGoEngine.
+    // Catches: an undo that restores the colouring but not the chain data of a re-used freed point.
+    [Fact]
+    public void UndoTwice_AfterCaptureAndPlayOnFreedPoint_RestoresStateBeforeCapture()
+    {
+        IGoEngine engine = Load(
+            ".XX..",
+            "XOOX.",
+            ".X...",
+            ".....",
+            ".....");
+        EngineState before = CaptureState(engine);
+        Assert.Equal(MoveResult.Success(2), engine.Play(new Point(2, 2)));
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(1, 1)));
+
+        Assert.True(engine.Undo());
+        Assert.True(engine.Undo());
+        AssertSameState(before, engine);
+    }
+
+    // Rule 7 and IGoEngine.
     [Fact]
     public void UndoSelfCapture_RestoresOwnStonesAndCounter()
     {
@@ -112,10 +126,8 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // Rule 6 and IGoEngine: undo of a pass restores the pass count and the turn that was there
-    // before. Every pair of player to move and passing colour: when they differ, the turn before is
-    // not the colour that passed; when they match, it is not the turn after the pass. Rejects
-    // deriving the turn from the passing colour and keeping the turn after the pass.
+    // Rule 6 and IGoEngine.
+    // Catches: the turn derived from the passing colour (all four colour pairs).
     [Theory]
     [InlineData(Color.Black, Color.Black)]
     [InlineData(Color.Black, Color.White)]
@@ -131,10 +143,8 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // IGoEngine: undo of a move restores the turn that was there before, not one derived from the
-    // undone stone. Every pair of player to move and stone colour: see UndoPass_RestoresPassCountAndTurnBefore.
-    // Rejects setting the turn to the colour of the undone stone (the opposite of the current turn)
-    // and keeping the current turn.
+    // IGoEngine.
+    // Catches: the turn derived from the undone stone's colour (all four colour pairs).
     [Theory]
     [InlineData(Color.Black, Color.Black)]
     [InlineData(Color.Black, Color.White)]
@@ -151,9 +161,7 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // Rule 8 and IGoEngine: Undo still works after the game has ended; undoing the second pass
-    // leaves one pass, so the game is not over and the next move is accepted. A rejected GameOver
-    // move before the undo is not undone instead. Rejects an undo that keeps the game over.
+    // Rule 8 and IGoEngine.
     [Fact]
     public void UndoAfterGameOver_GameContinues()
     {
@@ -169,8 +177,7 @@ public abstract class UndoContractTests : EngineContractTests
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
     }
 
-    // Rule 6 and IGoEngine: undo restores the superko history too, so the same move again makes a
-    // coloring that is no longer earlier. Rejects an undo that leaves the undone coloring in history.
+    // Rule 6 and IGoEngine.
     [Fact]
     public void PlayUndoSamePlay_IsOk()
     {
@@ -183,10 +190,7 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(afterFirst, engine);
     }
 
-    // Rule 6 and IGoEngine: after a ko capture White's retake is Superko. Undo of the capture rolls
-    // the history back to before it, so Black's capture is legal again, and the retake after it is
-    // again Superko. Rejects an undo that leaves the capture's coloring in history, and one that
-    // clears the whole history.
+    // Rule 6 and IGoEngine.
     [Fact]
     public void UndoKoCapture_RollsHistoryBack()
     {
@@ -203,9 +207,7 @@ public abstract class UndoContractTests : EngineContractTests
         Assert.Equal(MoveResult.Rejected(MoveStatus.Superko), engine.Play(KoRetake));
     }
 
-    // IGoEngine: a rejected move changes nothing, history included, so one undo after rejected
-    // moves of several kinds undoes the last accepted move, and a second finds nothing left.
-    // Rejects putting rejected moves on the undo stack.
+    // IGoEngine.
     [Fact]
     public void RejectedMoves_AreNotUndone_UndoRevertsLastAcceptedMove()
     {
@@ -231,10 +233,7 @@ public abstract class UndoContractTests : EngineContractTests
         AssertSameState(before, engine);
     }
 
-    // IGoEngine: each undo reverts one accepted Play or Pass, so undoing a game of captures, passes
-    // and explicit colours step by step passes through every earlier snapshot back to the start,
-    // chains and liberties included. Rejects an undo that skips or merges steps, and one that loses
-    // state on the way.
+    // IGoEngine.
     [Fact]
     public void SeveralUndos_PassThroughEverySnapshot_BackToStart()
     {

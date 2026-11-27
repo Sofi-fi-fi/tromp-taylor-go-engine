@@ -44,7 +44,6 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
-      # Fast suite only. No test categories exist yet (they arrive in PLAN 2.1),
-      # so today this filter matches every test; that is expected.
+      # Fast suite only.
       - name: Test
         run: dotnet test -c Release --no-build --filter "Category!=Performance&Category!=Exhaustive&Category!=Heavy"

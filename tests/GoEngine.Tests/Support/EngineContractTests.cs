@@ -74,8 +74,7 @@ public abstract class EngineContractTests
         return [.. Enumerable.Range(0, xy.Length / 2).Select(i => new Point(xy[2 * i], xy[2 * i + 1]))];
     }
 
-    // The snapshot plus the chain and liberties seen from every point. Comparing it rejects an undo or
-    // a rejected move that restores the coloring but not the chain structure or liberties.
+    // Catches: an undo or rejected move that restores the coloring but not chains or liberties.
     protected static EngineState CaptureState(IGoEngine engine)
     {
         PositionSnapshot snapshot = engine.Snapshot();

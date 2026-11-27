@@ -42,11 +42,8 @@ public abstract class SuperkoContractTests : EngineContractTests
         "....OX.",
     ];
 
-    // Rule 6: a move may not recreate an earlier coloring; rule 7: the coloring is judged after the
-    // captured stone is cleared. Rejects comparing the coloring before clearing, which never
-    // occurred and so would let the retake through. IGoEngine: the rejection changes nothing; the
-    // loaded pass count and counters are non-zero (Black's capture then resets the pass count, so a
-    // rejection that resets it is caught by Pass_DoesNotClearHistory_RetakeAfterPassIsSuperko).
+    // Rules 6 and 7, IGoEngine.
+    // Catches: comparing the coloring before the capture is cleared, which never occurred.
     [Fact]
     public void SimpleKo_ImmediateRetake_IsSuperko()
     {
@@ -62,8 +59,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         Assert.Equal(7, after.WhiteStonesRemoved);
     }
 
-    // Rule 6: only a repeated coloring is forbidden, not a point. After one exchange elsewhere the
-    // retake makes a new coloring. Rejects banning the ko point for good.
+    // Rule 6.
     [Fact]
     public void Ko_RetakeAfterExchangeElsewhere_IsOk()
     {
@@ -83,10 +79,7 @@ public abstract class SuperkoContractTests : EngineContractTests
             "....O");
     }
 
-    // Rule 6: any earlier coloring counts. Two kos: White fills ko A, Black takes A, White takes B,
-    // White retakes A (explicit colour), Black retakes B; the result is the coloring after White's
-    // first move, four plies back, while the coloring two plies back differs. Rejects checking only
-    // two plies back (simple ko) or only the previous coloring.
+    // Rule 6.
     [Fact]
     public void DoubleKo_RepeatFourPliesBack_IsSuperko()
     {
@@ -102,9 +95,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(4, 5), Color.Black, MoveStatus.Superko);
     }
 
-    // Rule 6: a coloring made by a Black move with a capture counts like any other. On the double-ko
-    // board Black takes ko A, White takes ko B, and Black's retake of B recreates the coloring after
-    // Black took A. Rejects recording only moves with Captured == 0, or only White's moves.
+    // Rule 6.
     [Fact]
     public void RepeatOfColoringMadeByBlackCapture_IsSuperko()
     {
@@ -116,10 +107,8 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(4, 5), Color.Black, MoveStatus.Superko);
     }
 
-    // Rule 7: the coloring a move makes is the one after both clearings, so an allowed suicide leaves
-    // only the white stones. Black then refills (1,0), and the suicide at (0,0) would recreate that
-    // coloring. Rejects recording the coloring after clearing the opponent but before clearing own
-    // stones, or not recording SelfCapture results.
+    // Rule 7.
+    // Catches: recording the coloring before the mover's own stones are cleared.
     [Fact]
     public void RepeatOfColoringMadeBySuicide_IsSuperko()
     {
@@ -145,9 +134,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(0, 0), Color.Black, MoveStatus.Superko);
     }
 
-    // Rule 6 and IGoEngine: a rejected move changes nothing, history included. Black's suicide at
-    // (0,2) is rejected; later White's capture of three stones leaves exactly the coloring that
-    // suicide would have made. Rejects recording the coloring of a rejected move.
+    // Rule 6 and IGoEngine.
     [Fact]
     public void RejectedMove_IsNotRecordedInHistory()
     {
@@ -170,9 +157,8 @@ public abstract class SuperkoContractTests : EngineContractTests
             "..O");
     }
 
-    // Comment 6 and IGoEngine: superko is positional, so only the coloring is compared. The retake
-    // would recreate the loaded coloring with another player to move, another pass count and other
-    // removed counters. Rejects PositionSnapshot.Equals as the key and the turn (or pass count) in it.
+    // Comment 6 and IGoEngine.
+    // Catches: PositionSnapshot.Equals (turn, passes, counters) as the history key.
     [Fact]
     public void Repetition_WithOtherTurnAndCounters_IsSuperko()
     {
@@ -190,9 +176,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, KoRetake, Color.White, MoveStatus.Superko);
     }
 
-    // Rule 7: an allowed single-stone suicide clears the stone and leaves the current coloring, which
-    // rule 6 forbids. IGoEngine: Suicide is checked before Superko, so without suicide allowed the
-    // same move is Suicide. Rejects returning SelfCapture(1) and the reverse check order.
+    // Rules 6 and 7, IGoEngine: Suicide is checked before Superko.
     [Theory]
     [InlineData(true, MoveStatus.Superko)]
     [InlineData(false, MoveStatus.Suicide)]
@@ -214,11 +198,8 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(0, 0), Color.Black, expected);
     }
 
-    // Rule 5: the game starts with an empty grid, so the empty coloring is the first history entry.
-    // Black fills the board with explicit colour; while the board is not full, a black-only chain
-    // always has a liberty. The last stone leaves no empty point, rule 7 clears every stone, and the
-    // empty board would return; on 3x3 it is 9 entries back. Rejects a history that starts with the
-    // first move, and checking only the last few colorings.
+    // Rules 5 and 7.
+    // Catches: a history that starts with the first move, or checks only recent colorings.
     [Theory]
     [InlineData(2)]
     [InlineData(3)]
@@ -233,10 +214,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(size - 1, size - 1), Color.Black, MoveStatus.Superko);
     }
 
-    // Design doc §6 ("Exhaustive testing on small boards": each coloring is loaded as the first
-    // superko history entry) and IGoEngine ("the starting one included"): a loaded position is the
-    // first history entry. White has just taken the ko; Black retakes, and White's retake would
-    // recreate the loaded coloring. Rejects a history that starts with the first move after loading.
+    // IGoEngine and design §6: a loaded position is the first history entry.
     [Fact]
     public void LoadedPosition_IsFirstHistoryEntry()
     {
@@ -247,9 +225,7 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, KoRetake, Color.White, MoveStatus.Superko);
     }
 
-    // Rule 6 and IGoEngine: a pass never violates superko, although its coloring repeats the current
-    // one, and it does not clear the history. Rejects superko on a pass, a pass that clears the
-    // history, and checking only two plies back. The rejection keeps the pass count of 1.
+    // Rule 6 and IGoEngine.
     [Fact]
     public void Pass_DoesNotClearHistory_RetakeAfterPassIsSuperko()
     {
