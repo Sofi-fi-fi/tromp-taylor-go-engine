@@ -50,16 +50,17 @@ public abstract class ScoreContractTests : EngineContractTests
         Assert.Equal(new ScoreResult(5, 15, 5, 7.5m), engine.Score());
     }
 
-    // Rule 9: a one-point region reaching only Black counts for Black, one reaching only White for
-    // White, and the large region reaching both is neutral. Rejects swapping the colours of eyes and
-    // counting only the largest region.
+    // Rule 9: the two-point region reaching only Black counts for Black, the one-point region reaching
+    // only White for White, and the large region reaching both is neutral: Black 4 stones + 2, White
+    // 3 stones + 1. The eyes differ in size, so swapped owners would give 5 and 5. Rejects swapping
+    // the colours of eyes and counting only the largest region.
     [Fact]
     public void RegionsReachingOneColour_CountForIt()
     {
         IGoEngine engine = LoadWithRemoved(
             [
-                ".X.O.",
-                "XX.OO",
+                "..XO.",
+                "XXXOO",
                 ".....",
                 ".....",
                 ".....",
@@ -68,8 +69,28 @@ public abstract class ScoreContractTests : EngineContractTests
 
         ScoreResult score = engine.Score();
 
-        Assert.Equal(new ScoreResult(4, 4, 17, 0m), score);
-        Assert.Null(score.Winner);
+        Assert.Equal(new ScoreResult(6, 4, 15, 0m), score);
+        Assert.Equal(Color.Black, score.Winner);
+    }
+
+    // Rule 3: reaching goes along vertical or horizontal paths only, so the empty corner (0,0), whose
+    // orthogonal neighbours are both Black, reaches only Black although the White stone (1,1) touches
+    // it diagonally; rule 9 counts it for Black: Black 2 stones + 1, White 1 stone, 21 neutral. With
+    // diagonal reach the corner would reach White too and be neutral (2, 1, 22). Rejects 8-connected
+    // scoring.
+    [Fact]
+    public void RegionTouchingOpponentOnlyDiagonally_CountsForOrthogonalColour()
+    {
+        IGoEngine engine = LoadWithRemoved(
+            [
+                ".X...",
+                "XO...",
+                ".....",
+                ".....",
+                ".....",
+            ]);
+
+        Assert.Equal(new ScoreResult(3, 1, 21, 7.5m), engine.Score());
     }
 
     // Rule 9 literally, with no dead-stone removal: the black stone inside White's corner makes that
