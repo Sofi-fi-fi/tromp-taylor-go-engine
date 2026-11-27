@@ -154,9 +154,9 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(x, y), MoveStatus.OutOfBounds);
     }
 
-    // Rule 1: the grid of a public size N has points 0..N-1 on each axis, so (N-1, N-1) is a point
-    // and (N, 0) and (0, N) are not. On the smallest and largest public sizes this rejects an
-    // off-by-one bound (<= N, or < N-1) and a bound of RuleSet.MaxSize instead of the board's size
+    // Rule 1 / comment 1: the grid of a public size N has points 0..N-1 on each axis, so (N-1, N-1)
+    // is a point and (N, 0) and (0, N) are not. On the smallest and largest public sizes this rejects
+    // an off-by-one bound (<= N, or < N-1) and a bound of RuleSet.MaxSize instead of the board's size
     // (on 9x9 it would accept (9, 0)).
     [Theory]
     [InlineData(9)]

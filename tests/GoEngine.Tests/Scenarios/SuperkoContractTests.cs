@@ -233,9 +233,10 @@ public abstract class SuperkoContractTests : EngineContractTests
         AssertRejected(engine, new Point(size - 1, size - 1), Color.Black, MoveStatus.Superko);
     }
 
-    // Project decision 3.1 and IGoEngine ("the starting one included"): a loaded position is the first
-    // history entry. White has just taken the ko; Black retakes, and White's retake would recreate
-    // the loaded coloring. Rejects a history that starts with the first move after loading.
+    // Design doc §6 ("Exhaustive testing on small boards": each coloring is loaded as the first
+    // superko history entry) and IGoEngine ("the starting one included"): a loaded position is the
+    // first history entry. White has just taken the ko; Black retakes, and White's retake would
+    // recreate the loaded coloring. Rejects a history that starts with the first move after loading.
     [Fact]
     public void LoadedPosition_IsFirstHistoryEntry()
     {

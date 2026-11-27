@@ -62,7 +62,8 @@ public sealed class ReferenceEngine : IGoEngine
         _whiteStonesRemoved = position.WhiteStonesRemoved;
 
         // Rule 5 starts from an empty grid; a loaded position takes its place as the first colouring
-        // (project decision 3.1), since its real earlier colourings are unknown.
+        // (design doc §6, "Exhaustive testing on small boards": each colouring is loaded as the first
+        // superko history entry), since its real earlier colourings are unknown.
         _history = [grid];
     }
 
