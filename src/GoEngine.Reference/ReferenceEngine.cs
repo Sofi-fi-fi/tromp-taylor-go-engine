@@ -19,6 +19,13 @@ public sealed class ReferenceEngine : IGoEngine
     // history and undo can restore it by reference instead of removing entries.
     private ImmutableList<Grid> _history;
 
+    // IGoEngine: Undo restores the state before the last accepted Play or Pass. Each accepted turn
+    // pushes the whole state before it, so undo copies every field back from one saved value
+    // instead of reversing the turn's effects one by one.
+    // Empty after construction: there is nothing to undo, and the loaded state is pushed by the first
+    // turn as it is, never rebuilt from defaults.
+    private readonly Stack<State> _undo = new();
+
     /// <summary>Starts a game on an empty board with Black to move.</summary>
     public ReferenceEngine(RuleSet rules)
         : this(rules, EmptyPosition(rules))
@@ -112,6 +119,8 @@ public sealed class ReferenceEngine : IGoEngine
             return MoveResult.Rejected(MoveStatus.Superko);
         }
 
+        // Pushed only now: every rejection above returns before it, so a rejected move is never undone.
+        _undo.Push(CurrentState());
         _history = _history.Add(afterOwn);
 
         _grid = afterOwn;
@@ -155,6 +164,8 @@ public sealed class ReferenceEngine : IGoEngine
             return MoveResult.Rejected(MoveStatus.GameOver);
         }
 
+        _undo.Push(CurrentState());
+
         // Rule 6: a pass colours nothing, so the grid, removed counters and history stay; its colouring
         // is already in the history and a pass is never a superko violation.
         _consecutivePasses++;
@@ -165,14 +176,69 @@ public sealed class ReferenceEngine : IGoEngine
         return MoveResult.Success(0);
     }
 
+    // IGoEngine: Undo also works after the game has ended (rule 8), since the restored pass count
+    // decides whether the game is over.
     public bool Undo()
     {
-        throw new NotImplementedException();
+        if (_undo.Count == 0)
+        {
+            return false;
+        }
+
+        State previous = _undo.Pop();
+        _grid = previous.Grid;
+        _toMove = previous.ToMove;
+        _consecutivePasses = previous.ConsecutivePasses;
+        _blackStonesRemoved = previous.BlackStonesRemoved;
+        _whiteStonesRemoved = previous.WhiteStonesRemoved;
+        _history = previous.History;
+        return true;
     }
 
+    // Rule 9: a player's score is the number of points of her colour plus the empty points that reach
+    // only her colour. All stones count: Tromp-Taylor has no dead-stone removal. An empty point that
+    // reaches both colours or neither counts for no one.
+    // Rule 10 and comment 10: komi is added to White's score and the higher score wins; ScoreResult
+    // does both from the counts, so the oracle only counts.
     public ScoreResult Score()
     {
-        throw new NotImplementedException();
+        int black = 0;
+        int white = 0;
+        int neutral = 0;
+
+        // Every empty point is judged on its own with rule 3's reach, not region by region: slower,
+        // but it is the rule's own wording and shares no region bookkeeping with Core.
+        foreach (Point p in _grid.AllPoints())
+        {
+            PointState state = _grid[p];
+            if (state == PointState.Black)
+            {
+                black++;
+            }
+            else if (state == PointState.White)
+            {
+                white++;
+            }
+            else
+            {
+                bool reachesBlack = _grid.Reaches(p, PointState.Black);
+                bool reachesWhite = _grid.Reaches(p, PointState.White);
+                if (reachesBlack && !reachesWhite)
+                {
+                    black++;
+                }
+                else if (reachesWhite && !reachesBlack)
+                {
+                    white++;
+                }
+                else
+                {
+                    neutral++;
+                }
+            }
+        }
+
+        return new ScoreResult(black, white, neutral, _rules.Komi);
     }
 
     public PositionSnapshot Snapshot()
@@ -197,6 +263,11 @@ public sealed class ReferenceEngine : IGoEngine
     // Rule 8: the game ends after two consecutive passes.
     private bool IsOver => _consecutivePasses == 2;
 
+    private State CurrentState()
+    {
+        return new State(_grid, _toMove, _consecutivePasses, _blackStonesRemoved, _whiteStonesRemoved, _history);
+    }
+
     // Rule 5: the game starts with an empty grid and Black to move.
     private static PositionSnapshot EmptyPosition(RuleSet rules)
     {
@@ -212,4 +283,13 @@ public sealed class ReferenceEngine : IGoEngine
             throw new ArgumentOutOfRangeException(nameof(point), point, "The point is outside the board.");
         }
     }
+
+    // Grid and history are immutable, so holding them by reference is a full copy of the state.
+    private sealed record State(
+        Grid Grid,
+        Color ToMove,
+        int ConsecutivePasses,
+        int BlackStonesRemoved,
+        int WhiteStonesRemoved,
+        ImmutableList<Grid> History);
 }
