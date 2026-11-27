@@ -489,6 +489,7 @@ public abstract class MoveContractTests : EngineContractTests
     }
 
     // Rule 7 and IGoEngine.
+    // 3 stones captured: Black moving gives White 6 + 3 = 9; White moving gives Black 4 + 3 = 7.
     // Catches: assignment instead of addition, or a swapped counter (non-zero start values).
     [Theory]
     [InlineData(Color.Black, 4, 9)]
@@ -548,6 +549,7 @@ public abstract class MoveContractTests : EngineContractTests
     }
 
     // Rule 7 and IGoEngine.
+    // 3 own stones removed: Black moving gives 4 + 3 = 7; White moving gives 6 + 3 = 9.
     [Theory]
     [InlineData(Color.Black, 7, 6)]
     [InlineData(Color.White, 4, 9)]

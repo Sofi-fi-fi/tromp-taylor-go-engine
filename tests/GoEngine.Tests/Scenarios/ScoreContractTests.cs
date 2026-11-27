@@ -13,6 +13,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rules 9 and 10, comment 10.
+    // No stones; all 25 points reach no colour: 0 : 0, 25 neutral, so komi alone decides.
     [Theory]
     [InlineData(7.5, Color.White, 7.5)]
     [InlineData(0, null, 0)]
@@ -29,6 +30,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rule 9.
+    // Black 5 stones; White 5 stones + 10 empty (columns 3-4); column 1 reaches both: 5 neutral.
     [Fact]
     public void RegionReachingBothColours_IsNeutral()
     {
@@ -45,6 +47,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rule 9.
+    // Black 4 stones + 2 (eye at top left); White 3 stones + 1 (top right); rows 2-4: 15 neutral.
     // Catches: swapped eye owners (the eyes differ in size, so a swap changes both scores).
     [Fact]
     public void RegionsReachingOneColour_CountForIt()
@@ -66,6 +69,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rules 3 and 9.
+    // Black 2 stones + 1 (corner (0, 0)); White 1 stone; the other 21 points reach both.
     [Fact]
     public void RegionTouchingOpponentOnlyDiagonally_CountsForOrthogonalColour()
     {
@@ -82,6 +86,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rule 9: no dead-stone removal.
+    // Black 1 stone; White 5 stones + 16 empty outside the corner; (1,0), (0,1), (1,1) reach both: 3 neutral.
     [Fact]
     public void DeadLookingStoneInsideWhiteArea_MakesRegionNeutral()
     {
@@ -98,6 +103,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // Rules 9 and 10, comment 10.
+    // Black 11 stones + 4 empty in column 1 = 15; White 5 stones + komi 10 = 15; column 3: 5 neutral.
     // Catches: scoring the loaded coloring (10, 6 and 9) instead of the current one.
     [Fact]
     public void ScoreAfterCaptureAndTwoPasses_CountsCurrentBoard_Tie()
@@ -123,6 +129,7 @@ public abstract class ScoreContractTests : EngineContractTests
     }
 
     // IGoEngine.
+    // As in RegionReachingBothColours_IsNeutral: Black 5, White 5 + 10, column 1 neutral.
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
