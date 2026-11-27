@@ -125,6 +125,12 @@ internal sealed class GroupTracker
         return _liberties[Root(point)]!;
     }
 
+    // Stub for the chain removal tests; implemented in the next group.
+    public int RemoveChain(int point)
+    {
+        throw new NotImplementedException();
+    }
+
     // Joins two distinct roots; the larger chain's root stays root and keeps its liberty set.
     private int Union(int a, int b)
     {

@@ -1,5 +1,6 @@
 using GoEngine.Core;
 using Xunit;
+using static GoEngine.Tests.Core.Groups.TrackerHelpers;
 
 namespace GoEngine.Tests.Core.Groups;
 
@@ -252,37 +253,8 @@ public class GroupTrackerPlacementTests
         Assert.Throws<InvalidOperationException>(() => Place(tracker, Color.White, 1, 1));
     }
 
-    private static void Place(GroupTracker tracker, Color color, int x, int y)
-    {
-        tracker.Place(tracker.Board.IndexOf(new Point(x, y)), color);
-    }
-
-    private static int Root(GroupTracker tracker, int x, int y)
-    {
-        return tracker.Root(tracker.Board.IndexOf(new Point(x, y)));
-    }
-
-    private static IEnumerable<int> Members(GroupTracker tracker, int x, int y)
-    {
-        return tracker.Members(tracker.Board.IndexOf(new Point(x, y)));
-    }
-
-    private static IEnumerable<int> Liberties(GroupTracker tracker, int x, int y)
-    {
-        return tracker.Liberties(tracker.Board.IndexOf(new Point(x, y)));
-    }
-
     private static Point[] Points(int[] xy)
     {
         return [.. Enumerable.Range(0, xy.Length / 2).Select(i => new Point(xy[2 * i], xy[2 * i + 1]))];
-    }
-
-    // Compares as sets and also checks there are no duplicates; at most PointCount + 1 indices
-    // are read, so a cyclic enumeration that never ends still fails.
-    private static void AssertPoints(GroupTracker tracker, IEnumerable<Point> expected, IEnumerable<int> actual)
-    {
-        Point[] points = [.. actual.Take(tracker.Board.PointCount + 1).Select(tracker.Board.PointAt)];
-        Assert.Equal(points.Length, points.Distinct().Count());
-        Assert.Equal(expected.ToHashSet(), points.ToHashSet());
     }
 }
