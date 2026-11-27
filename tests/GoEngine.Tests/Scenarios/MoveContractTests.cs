@@ -398,8 +398,8 @@ public abstract class MoveContractTests
     }
 
     // Rule 7: with suicide allowed, the mover's own string is cleared, the played stone included,
-    // and the turn passes. Only multi-stone strings: a single-stone suicide recreates the previous
-    // colouring, which becomes a superko violation once superko is checked (stage 3.3).
+    // and the turn passes. Only multi-stone strings: a single-stone suicide recreates the current
+    // colouring and is Superko (SuperkoContractTests.SingleStoneSuicide_IsSuperkoIfAllowedElseSuicide).
     [Fact]
     public void SuicideInCorner_Allowed_SelfCapturesChain()
     {
