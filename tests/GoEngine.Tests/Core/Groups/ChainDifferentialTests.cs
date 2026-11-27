@@ -89,8 +89,14 @@ public class ChainDifferentialTests
 
     private static void AssertSameChains(int size, PointState[] colouring, IGoEngine reference)
     {
+        // Shuffled, not row order, so merges happen in many orders. The seed comes from the
+        // colouring itself, so the order is fixed per colouring and needs no shared state.
+        int seed = colouring.Aggregate(17, (hash, state) => unchecked((hash * 31) + (int)state));
+        int[] order = [.. Enumerable.Range(0, colouring.Length)];
+        new Random(seed).Shuffle(order);
+
         GroupTracker tracker = new(size);
-        for (int i = 0; i < colouring.Length; i++)
+        foreach (int i in order)
         {
             if (colouring[i] != PointState.Empty)
             {

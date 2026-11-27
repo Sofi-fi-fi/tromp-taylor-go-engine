@@ -38,7 +38,7 @@ public class GroupTrackerRecountTests
             select new Operation(kind == 0, pick, color);
 
         Gen<(int, Operation[])> gen =
-            from size in Gen.Choose(RuleSet.MinTestSize, 9)
+            from size in Gen.Choose(RuleSet.MinTestSize, RuleSet.MaxSize)
             from operations in operation.ArrayOf()
             select (size, operations);
         return Arb.From(gen);

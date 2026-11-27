@@ -8,36 +8,34 @@ namespace GoEngine.Tests.Support;
 // Design §6: properties run with a fixed FsCheck seed.
 public class SeededPropertyTests
 {
-    // The inputs the attribute's run must see: the same generator under the same seed.
-    private static readonly Lazy<List<string>> ExpectedInputs = new(() => Inputs(SeededPropertyAttribute.Seed));
-
-    private static int _attributeCalls;
+    // The inputs the attribute's run may see: the same generator under the same seed.
+    private static readonly Lazy<HashSet<string>> ExpectedInputs = new(() => [.. Inputs(SeededPropertyAttribute.Seed)]);
 
     [Fact]
     public void SameSeed_TwoRuns_SeeTheSameInputs()
     {
-        List<string> first = Inputs(SeededPropertyAttribute.Seed);
-        List<string> second = Inputs(SeededPropertyAttribute.Seed);
-
-        Assert.Equal(SeededPropertyAttribute.MaxTestFromEnvironment(), first.Count);
-        Assert.Equal(first, second);
+        Assert.Equal(Inputs(SeededPropertyAttribute.Seed), Inputs(SeededPropertyAttribute.Seed));
     }
 
-    // Catches: a generator that ignores the seed, which would make the test above pass vacuously.
+    [Fact]
+    public void SeededRun_MakesMaxTestCases()
+    {
+        Assert.Equal(SeededPropertyAttribute.MaxTestFromEnvironment(), Inputs(SeededPropertyAttribute.Seed).Count);
+    }
+
+    // Catches: a generator that ignores the seed, which would make SameSeed_TwoRuns_SeeTheSameInputs pass vacuously.
     [Fact]
     public void DifferentSeed_SeesDifferentInputs()
     {
         Assert.NotEqual(Inputs(SeededPropertyAttribute.Seed), Inputs(SeededPropertyAttribute.Seed + 1));
     }
 
-    // Catches: an ignored Replay (FsCheck then picks a random seed).
+    // Membership, not position: no per-run state, so a second run in the same process (Stryker, IDE)
+    // sees the same result. Catches: an ignored Replay (FsCheck then picks a random seed).
     [SeededProperty]
     public void Attribute_RunsWithTheFixedSeed(int[] xs)
     {
-        int call = Interlocked.Increment(ref _attributeCalls) - 1;
-
-        Assert.True(call < ExpectedInputs.Value.Count, $"Property ran more than {ExpectedInputs.Value.Count} times.");
-        Assert.Equal(ExpectedInputs.Value[call], Format(xs));
+        Assert.Contains(Format(xs), ExpectedInputs.Value);
     }
 
     [Theory]
