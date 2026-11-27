@@ -116,7 +116,7 @@ internal sealed class GroupTracker
         while (current != point);
     }
 
-    // The live set of the chain's root: valid until the next placement.
+    // The live set of the chain's root: valid until the next Place or RemoveChain.
     public IReadOnlySet<int> Liberties(int point)
     {
         if (_board[point] == PointState.Empty)
@@ -160,8 +160,9 @@ internal sealed class GroupTracker
         }
         while (current != point);
 
-        // Parent, size and ring entries of freed points are left stale: every read checks the
-        // board first, and Place reinitialises them.
+        // Parent, size and ring entries of freed points are left stale; every read checks the board
+        // first. Undo journal: Place overwrites a point's parent, size, next and liberties, so save
+        // the old values before it does, or undoing a capture cannot restore them.
         _liberties[root] = null;
         return removed;
     }
