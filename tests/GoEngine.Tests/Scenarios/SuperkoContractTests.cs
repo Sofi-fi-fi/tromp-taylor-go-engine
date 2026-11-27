@@ -202,6 +202,31 @@ public abstract class SuperkoContractTests
         AssertRejected(engine, new Point(0, 0), Color.Black, MoveStatus.Superko);
     }
 
+    // Rule 6 and IGoEngine: a rejected move changes nothing, history included. Black's suicide at
+    // (0,2) is rejected; later White's capture of three stones leaves exactly the coloring that
+    // suicide would have made. Rejects recording the coloring of a rejected move.
+    [Fact]
+    public void RejectedMove_IsNotRecordedInHistory()
+    {
+        IGoEngine engine = Load(
+            [
+                "..O",
+                "OO.",
+                ".XO",
+            ]);
+        AssertRejected(engine, new Point(0, 2), Color.Black, MoveStatus.Suicide);
+        Assert.Equal(MoveResult.Success(1), engine.Play(new Point(2, 1)));
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(0, 2), Color.Black));
+
+        Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 2)));
+
+        AssertBoard(
+            engine.Snapshot(),
+            "..O",
+            "OO.",
+            "..O");
+    }
+
     // Comment 6 and IGoEngine: superko is positional, so only the coloring is compared. The retake
     // would recreate the loaded coloring with another player to move, another pass count and other
     // removed counters. Rejects PositionSnapshot.Equals as the key and the turn (or pass count) in it.
