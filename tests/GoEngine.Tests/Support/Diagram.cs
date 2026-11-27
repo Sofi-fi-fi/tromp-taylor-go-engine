@@ -6,6 +6,16 @@ internal static class Diagram
 {
     public static PositionSnapshot Parse(params string[] rows)
     {
+        return Parse(rows, Color.Black);
+    }
+
+    public static PositionSnapshot Parse(
+        string[] rows,
+        Color toMove = Color.Black,
+        int consecutivePasses = 0,
+        int blackStonesRemoved = 0,
+        int whiteStonesRemoved = 0)
+    {
         int size = rows.Length;
         PointState[] coloring = new PointState[size * size];
         for (int y = 0; y < size; y++)
@@ -28,6 +38,6 @@ internal static class Diagram
             }
         }
 
-        return new PositionSnapshot(size, coloring, Color.Black, 0, 0, 0);
+        return new PositionSnapshot(size, coloring, toMove, consecutivePasses, blackStonesRemoved, whiteStonesRemoved);
     }
 }

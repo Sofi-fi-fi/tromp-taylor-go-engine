@@ -4,7 +4,7 @@ using Xunit;
 
 namespace GoEngine.Tests.Scenarios;
 
-public abstract class SuperkoContractTests
+public abstract class SuperkoContractTests : EngineContractTests
 {
     private static readonly Point KoCapture = new(2, 1);
     private static readonly Point KoRetake = new(1, 1);
@@ -41,63 +41,6 @@ public abstract class SuperkoContractTests
         "...OX.X",
         "....OX.",
     ];
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules);
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
-
-    private IGoEngine Load(
-        string[] rows,
-        Color toMove = Color.Black,
-        int consecutivePasses = 0,
-        int blackStonesRemoved = 0,
-        int whiteStonesRemoved = 0,
-        bool allowSuicide = false)
-    {
-        PositionSnapshot board = Diagram.Parse(rows);
-        PositionSnapshot position = new(
-            board.Size,
-            [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
-            toMove,
-            consecutivePasses,
-            blackStonesRemoved,
-            whiteStonesRemoved);
-        return CreateEngine(RuleSet.CreateForTests(board.Size, allowSuicide: allowSuicide), position);
-    }
-
-    private static bool SameColoring(PositionSnapshot a, PositionSnapshot b)
-    {
-        if (a.Size != b.Size)
-        {
-            return false;
-        }
-
-        for (int y = 0; y < a.Size; y++)
-        {
-            for (int x = 0; x < a.Size; x++)
-            {
-                if (a[new Point(x, y)] != b[new Point(x, y)])
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private static void AssertBoard(PositionSnapshot actual, params string[] rows)
-    {
-        Assert.True(SameColoring(Diagram.Parse(rows), actual), "The board coloring differs from the diagram.");
-    }
-
-    private static void AssertRejected(IGoEngine engine, Point point, Color color, MoveStatus status)
-    {
-        PositionSnapshot before = engine.Snapshot();
-
-        Assert.Equal(MoveResult.Rejected(status), engine.Play(point, color));
-        Assert.Equal(before, engine.Snapshot());
-    }
 
     // Rule 6: a move may not recreate an earlier coloring; rule 7: the coloring is judged after the
     // captured stone is cleared. Rejects comparing the coloring before clearing, which never

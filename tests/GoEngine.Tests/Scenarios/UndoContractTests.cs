@@ -4,7 +4,7 @@ using Xunit;
 
 namespace GoEngine.Tests.Scenarios;
 
-public abstract class UndoContractTests
+public abstract class UndoContractTests : EngineContractTests
 {
     private static readonly Point KoCapture = new(2, 1);
     private static readonly Point KoRetake = new(1, 1);
@@ -18,29 +18,6 @@ public abstract class UndoContractTests
         ".....",
         ".....",
     ];
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules);
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
-
-    private IGoEngine Load(
-        string[] rows,
-        Color toMove = Color.Black,
-        int consecutivePasses = 0,
-        int blackStonesRemoved = 0,
-        int whiteStonesRemoved = 0,
-        bool allowSuicide = false)
-    {
-        PositionSnapshot board = Diagram.Parse(rows);
-        PositionSnapshot position = new(
-            board.Size,
-            [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
-            toMove,
-            consecutivePasses,
-            blackStonesRemoved,
-            whiteStonesRemoved);
-        return CreateEngine(RuleSet.CreateForTests(board.Size, allowSuicide: allowSuicide), position);
-    }
 
     private static string[] SparseBoard()
     {
@@ -60,10 +37,10 @@ public abstract class UndoContractTests
     public void FreshGame_Undo_ReturnsFalse_StateUnchanged()
     {
         IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
 
         Assert.False(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // IGoEngine: a loaded position has no accepted Play or Pass behind it, so there is nothing to
@@ -75,17 +52,17 @@ public abstract class UndoContractTests
     {
         IGoEngine engine = Load(
             SparseBoard(), toMove: Color.White, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6);
-        PositionSnapshot loaded = engine.Snapshot();
+        EngineState loaded = CaptureState(engine);
 
         Assert.False(engine.Undo());
-        Assert.Equal(loaded, engine.Snapshot());
+        AssertSameState(loaded, engine);
 
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
         Assert.True(engine.Undo());
-        Assert.Equal(loaded, engine.Snapshot());
+        AssertSameState(loaded, engine);
 
         Assert.False(engine.Undo());
-        Assert.Equal(loaded, engine.Snapshot());
+        AssertSameState(loaded, engine);
     }
 
     // Rule 7 and IGoEngine: undo of a capture puts the three captured stones back and restores the
@@ -105,11 +82,11 @@ public abstract class UndoContractTests
             consecutivePasses: 1,
             blackStonesRemoved: 4,
             whiteStonesRemoved: 6);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0)));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // Rule 7 and IGoEngine: undo of an allowed suicide puts the mover's own stones back and restores
@@ -128,11 +105,11 @@ public abstract class UndoContractTests
             blackStonesRemoved: 4,
             whiteStonesRemoved: 6,
             allowSuicide: true);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1)));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // Rule 6 and IGoEngine: undo of a pass restores the pass count and the turn that was there
@@ -147,11 +124,11 @@ public abstract class UndoContractTests
     public void UndoPass_RestoresPassCountAndTurnBefore(Color toMove, Color passer)
     {
         IGoEngine engine = Load(SparseBoard(), toMove: toMove, blackStonesRemoved: 4, whiteStonesRemoved: 6);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.Success(0), engine.Pass(passer));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // IGoEngine: undo of a move restores the turn that was there before, not one derived from the
@@ -167,11 +144,11 @@ public abstract class UndoContractTests
     {
         IGoEngine engine = Load(
             SparseBoard(), toMove: toMove, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2), mover));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // Rule 8 and IGoEngine: Undo still works after the game has ended; undoing the second pass
@@ -181,13 +158,13 @@ public abstract class UndoContractTests
     public void UndoAfterGameOver_GameContinues()
     {
         IGoEngine engine = Load(SparseBoard(), consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.Success(0), engine.Pass());
         Assert.True(engine.Snapshot().IsOver);
         Assert.Equal(MoveResult.Rejected(MoveStatus.GameOver), engine.Play(new Point(2, 2)));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
         Assert.False(engine.Snapshot().IsOver);
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
     }
@@ -199,11 +176,11 @@ public abstract class UndoContractTests
     {
         IGoEngine engine = Load(SparseBoard());
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
-        PositionSnapshot afterFirst = engine.Snapshot();
+        EngineState afterFirst = CaptureState(engine);
 
         Assert.True(engine.Undo());
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
-        Assert.Equal(afterFirst, engine.Snapshot());
+        AssertSameState(afterFirst, engine);
     }
 
     // Rule 6 and IGoEngine: after a ko capture White's retake is Superko. Undo of the capture rolls
@@ -215,12 +192,12 @@ public abstract class UndoContractTests
     {
         IGoEngine engine = Load(KoBeforeWhiteStone, toMove: Color.White);
         Assert.Equal(MoveResult.Success(0), engine.Play(KoRetake));
-        PositionSnapshot beforeCapture = engine.Snapshot();
+        EngineState beforeCapture = CaptureState(engine);
         Assert.Equal(MoveResult.Success(1), engine.Play(KoCapture));
         Assert.Equal(MoveResult.Rejected(MoveStatus.Superko), engine.Play(KoRetake));
 
         Assert.True(engine.Undo());
-        Assert.Equal(beforeCapture, engine.Snapshot());
+        AssertSameState(beforeCapture, engine);
 
         Assert.Equal(MoveResult.Success(1), engine.Play(KoCapture));
         Assert.Equal(MoveResult.Rejected(MoveStatus.Superko), engine.Play(KoRetake));
@@ -242,26 +219,27 @@ public abstract class UndoContractTests
             ],
             blackStonesRemoved: 4,
             whiteStonesRemoved: 6);
-        PositionSnapshot before = engine.Snapshot();
+        EngineState before = CaptureState(engine);
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2), Color.White));
         Assert.Equal(MoveResult.Rejected(MoveStatus.Occupied), engine.Play(new Point(2, 2)));
         Assert.Equal(MoveResult.Rejected(MoveStatus.OutOfBounds), engine.Play(new Point(5, 0)));
         Assert.Equal(MoveResult.Rejected(MoveStatus.Suicide), engine.Play(new Point(0, 0)));
 
         Assert.True(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
         Assert.False(engine.Undo());
-        Assert.Equal(before, engine.Snapshot());
+        AssertSameState(before, engine);
     }
 
     // IGoEngine: each undo reverts one accepted Play or Pass, so undoing a game of captures, passes
-    // and explicit colours step by step passes through every earlier snapshot back to the start.
-    // Rejects an undo that skips or merges steps, and one that loses state on the way.
+    // and explicit colours step by step passes through every earlier snapshot back to the start,
+    // chains and liberties included. Rejects an undo that skips or merges steps, and one that loses
+    // state on the way.
     [Fact]
     public void SeveralUndos_PassThroughEverySnapshot_BackToStart()
     {
         IGoEngine engine = CreateEngine(RuleSet.CreateForTests(5));
-        List<PositionSnapshot> snapshots = [engine.Snapshot()];
+        List<EngineState> states = [CaptureState(engine)];
         Func<MoveResult>[] moves =
         [
             () => engine.Play(new Point(1, 0)),
@@ -283,16 +261,16 @@ public abstract class UndoContractTests
         for (int i = 0; i < moves.Length; i++)
         {
             Assert.Equal(expected[i], moves[i]());
-            snapshots.Add(engine.Snapshot());
+            states.Add(CaptureState(engine));
         }
 
         for (int i = moves.Length - 1; i >= 0; i--)
         {
             Assert.True(engine.Undo());
-            Assert.Equal(snapshots[i], engine.Snapshot());
+            AssertSameState(states[i], engine);
         }
 
         Assert.False(engine.Undo());
-        Assert.Equal(snapshots[0], engine.Snapshot());
+        AssertSameState(states[0], engine);
     }
 }

@@ -4,31 +4,8 @@ using Xunit;
 
 namespace GoEngine.Tests.Scenarios;
 
-public abstract class ChainContractTests
+public abstract class ChainContractTests : EngineContractTests
 {
-    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
-
-    private IGoEngine Load(params string[] rows)
-    {
-        PositionSnapshot position = Diagram.Parse(rows);
-        return CreateEngine(RuleSet.CreateForTests(position.Size), position);
-    }
-
-    private static void AssertPoints(IEnumerable<Point> expected, IReadOnlySet<Point> actual)
-    {
-        Assert.Equal(Sorted(expected), Sorted(actual));
-    }
-
-    private static List<Point> Sorted(IEnumerable<Point> points)
-    {
-        return [.. points.OrderBy(p => p.Y).ThenBy(p => p.X)];
-    }
-
-    private static Point[] Points(int[] xy)
-    {
-        return [.. Enumerable.Range(0, xy.Length / 2).Select(i => new Point(xy[2 * i], xy[2 * i + 1]))];
-    }
-
     // Comment 3: only stones form strings, so an empty point has neither a chain nor liberties.
     [Fact]
     public void EmptyPoint_HasEmptyChainAndNoLiberties()
@@ -249,13 +226,12 @@ public abstract class ChainContractTests
     [Fact]
     public void Snapshot_AfterLoading_EqualsLoadedPosition()
     {
-        PositionSnapshot board = Diagram.Parse(
-            "XO.",
-            ".X.",
-            "..O");
-        PositionSnapshot position = new(
-            board.Size,
-            [.. Enumerable.Range(0, 9).Select(i => board[new Point(i % 3, i / 3)])],
+        PositionSnapshot position = Diagram.Parse(
+            [
+                "XO.",
+                ".X.",
+                "..O",
+            ],
             Color.White,
             consecutivePasses: 1,
             blackStonesRemoved: 3,

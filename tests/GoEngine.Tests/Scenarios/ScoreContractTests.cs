@@ -4,23 +4,12 @@ using Xunit;
 
 namespace GoEngine.Tests.Scenarios;
 
-public abstract class ScoreContractTests
+public abstract class ScoreContractTests : EngineContractTests
 {
-    protected abstract IGoEngine CreateEngine(RuleSet rules);
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
-
-    private IGoEngine Load(string[] rows, decimal komi = 7.5m, int consecutivePasses = 0)
+    // Removed counters that scoring must ignore: area scoring counts the board only.
+    private IGoEngine LoadWithRemoved(string[] rows, decimal komi = 7.5m, int consecutivePasses = 0)
     {
-        PositionSnapshot board = Diagram.Parse(rows);
-        PositionSnapshot position = new(
-            board.Size,
-            [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
-            Color.Black,
-            consecutivePasses,
-            4,
-            6);
-        return CreateEngine(RuleSet.CreateForTests(board.Size, komi), position);
+        return Load(rows, consecutivePasses: consecutivePasses, blackStonesRemoved: 4, whiteStonesRemoved: 6, komi: komi);
     }
 
     // Rule 9: no stones and one empty region reaching no colour, so both areas are 0 and all 25 points
@@ -49,7 +38,7 @@ public abstract class ScoreContractTests
     [Fact]
     public void RegionReachingBothColours_IsNeutral()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadWithRemoved(
             [
                 "X.O..",
                 "X.O..",
@@ -67,7 +56,7 @@ public abstract class ScoreContractTests
     [Fact]
     public void RegionsReachingOneColour_CountForIt()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadWithRemoved(
             [
                 ".X.O.",
                 "XX.OO",
@@ -89,7 +78,7 @@ public abstract class ScoreContractTests
     [Fact]
     public void DeadLookingStoneInsideWhiteArea_MakesRegionNeutral()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadWithRemoved(
             [
                 "X.O..",
                 "..O..",
@@ -109,7 +98,7 @@ public abstract class ScoreContractTests
     [Fact]
     public void ScoreAfterCaptureAndTwoPasses_CountsCurrentBoard_Tie()
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadWithRemoved(
             [
                 "XOX.O",
                 "X.X.O",
@@ -138,7 +127,7 @@ public abstract class ScoreContractTests
     [InlineData(2)]
     public void Score_AnyTime_ChangesNothing(int consecutivePasses)
     {
-        IGoEngine engine = Load(
+        IGoEngine engine = LoadWithRemoved(
             [
                 "X.O..",
                 "X.O..",

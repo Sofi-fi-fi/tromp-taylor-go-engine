@@ -4,51 +4,27 @@ using Xunit;
 
 namespace GoEngine.Tests.Scenarios;
 
-public abstract class MoveContractTests
+public abstract class MoveContractTests : EngineContractTests
 {
-    protected abstract IGoEngine CreateEngine(RuleSet rules);
-
-    protected abstract IGoEngine CreateEngine(RuleSet rules, PositionSnapshot position);
-
-    private IGoEngine Load(params string[] rows)
-    {
-        return Load(allowSuicide: false, rows);
-    }
+    // Black to move. (0,0) is suicide for Black, (2,1) is occupied, (3,3) is empty.
+    private static readonly string[] Endgame =
+    [
+        ".O...",
+        "O.X..",
+        ".....",
+        ".....",
+        ".....",
+    ];
 
     private IGoEngine LoadAllowingSuicide(params string[] rows)
     {
-        return Load(allowSuicide: true, rows);
-    }
-
-    private IGoEngine Load(bool allowSuicide, string[] rows)
-    {
-        PositionSnapshot position = Diagram.Parse(rows);
-        return CreateEngine(RuleSet.CreateForTests(position.Size, allowSuicide: allowSuicide), position);
+        return Load(rows, allowSuicide: true);
     }
 
     // A pass count and removed counters that a rejected move must not reset or touch.
     private IGoEngine LoadMidGame(params string[] rows)
     {
-        PositionSnapshot board = Diagram.Parse(rows);
-        return CreateEngine(
-            RuleSet.CreateForTests(board.Size),
-            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6));
-    }
-
-    private static PositionSnapshot WithState(
-        PositionSnapshot board,
-        int consecutivePasses,
-        int blackStonesRemoved,
-        int whiteStonesRemoved,
-        Color toMove = Color.Black)
-    {
-        return new PositionSnapshot(
-            board.Size,
-            [.. Enumerable.Range(0, board.Size * board.Size).Select(i => board[new Point(i % board.Size, i / board.Size)])],
-            toMove,
-            consecutivePasses,
-            blackStonesRemoved,
-            whiteStonesRemoved);
+        return Load(rows, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6);
     }
 
     // Diagrams in colour theories draw the mover as X; for White the colours are swapped.
@@ -57,48 +33,6 @@ public abstract class MoveContractTests
         return mover == Color.Black
             ? rows
             : [.. rows.Select(r => new string([.. r.Select(c => c switch { 'X' => 'O', 'O' => 'X', _ => c })]))];
-    }
-
-    private static void AssertBoard(PositionSnapshot actual, params string[] rows)
-    {
-        PositionSnapshot expected = Diagram.Parse(rows);
-        Assert.Equal(expected.Size, actual.Size);
-        for (int y = 0; y < expected.Size; y++)
-        {
-            for (int x = 0; x < expected.Size; x++)
-            {
-                Assert.True(
-                    expected[new Point(x, y)] == actual[new Point(x, y)],
-                    $"Point ({x}, {y}): expected {expected[new Point(x, y)]}, actual {actual[new Point(x, y)]}.");
-            }
-        }
-    }
-
-    private static void AssertRejected(IGoEngine engine, Point point, MoveStatus status)
-    {
-        PositionSnapshot before = engine.Snapshot();
-
-        Assert.Equal(MoveResult.Rejected(status), engine.Play(point));
-        Assert.Equal(before, engine.Snapshot());
-    }
-
-    private static void AssertRejected(IGoEngine engine, string call, MoveStatus status)
-    {
-        PositionSnapshot before = engine.Snapshot();
-
-        Assert.Equal(MoveResult.Rejected(status), Call(engine, call));
-        Assert.Equal(before, engine.Snapshot());
-    }
-
-    // Black to move. (0,0) is suicide for Black, (2,1) is occupied, (3,3) is empty.
-    private static PositionSnapshot EndgameBoard()
-    {
-        return Diagram.Parse(
-            ".O...",
-            "O.X..",
-            ".....",
-            ".....",
-            ".....");
     }
 
     private static MoveResult Call(IGoEngine engine, string call)
@@ -114,16 +48,6 @@ public abstract class MoveContractTests
             "Pass with colour" => engine.Pass(Color.White),
             _ => throw new ArgumentOutOfRangeException(nameof(call), call, "Unknown call."),
         };
-    }
-
-    private static void AssertPoints(IEnumerable<Point> expected, IReadOnlySet<Point> actual)
-    {
-        Assert.Equal(Sorted(expected), Sorted(actual));
-    }
-
-    private static List<Point> Sorted(IEnumerable<Point> points)
-    {
-        return [.. points.OrderBy(p => p.Y).ThenBy(p => p.X)];
     }
 
     // Rule 5: Black moves first on an empty grid, then the turn alternates.
@@ -347,14 +271,14 @@ public abstract class MoveContractTests
     public void CaptureBeforeSuicide_PlayedStoneStays(bool allowSuicide)
     {
         IGoEngine engine = Load(
-            allowSuicide,
             [
                 ".XO..",
                 "XO.O.",
                 ".XO..",
                 ".....",
                 ".....",
-            ]);
+            ],
+            allowSuicide: allowSuicide);
 
         Assert.Equal(MoveResult.Success(1), engine.Play(new Point(2, 1)));
 
@@ -508,16 +432,16 @@ public abstract class MoveContractTests
     [InlineData(Color.White, 7, 6)]
     public void Capture_AddsCapturedToOpponentRemovedCounter(Color mover, int black, int white)
     {
-        PositionSnapshot board = Diagram.Parse(ForMover(
-            mover,
-            "OO.OX",
-            "XX.X.",
-            ".....",
-            ".....",
-            "....."));
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(
+            ForMover(
+                mover,
+                "OO.OX",
+                "XX.X.",
+                ".....",
+                ".....",
+                "....."),
+            blackStonesRemoved: 4,
+            whiteStonesRemoved: 6);
 
         Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0), mover));
 
@@ -531,15 +455,17 @@ public abstract class MoveContractTests
     [Fact]
     public void WhiteToMove_PlayWithoutColour_CapturesForWhite()
     {
-        PositionSnapshot board = Diagram.Parse(
-            "XX.XO",
-            "OO.O.",
-            ".....",
-            ".....",
-            ".....");
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White));
+        IGoEngine engine = Load(
+            [
+                "XX.XO",
+                "OO.O.",
+                ".....",
+                ".....",
+                ".....",
+            ],
+            Color.White,
+            blackStonesRemoved: 4,
+            whiteStonesRemoved: 6);
 
         Assert.Equal(MoveResult.Success(3), engine.Play(new Point(2, 0)));
 
@@ -562,16 +488,17 @@ public abstract class MoveContractTests
     [InlineData(Color.White, 4, 9)]
     public void SelfCapture_AddsSelfCapturedToMoverRemovedCounter(Color mover, int black, int white)
     {
-        PositionSnapshot board = Diagram.Parse(ForMover(
-            mover,
-            ".OOO.",
-            "OX.XO",
-            ".OOO.",
-            ".....",
-            "....."));
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5, allowSuicide: true),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(
+            ForMover(
+                mover,
+                ".OOO.",
+                "OX.XO",
+                ".OOO.",
+                ".....",
+                "....."),
+            blackStonesRemoved: 4,
+            whiteStonesRemoved: 6,
+            allowSuicide: true);
 
         Assert.Equal(MoveResult.SelfCapture(3), engine.Play(new Point(2, 1), mover));
 
@@ -584,15 +511,15 @@ public abstract class MoveContractTests
     [Fact]
     public void AcceptedPlay_ResetsConsecutivePasses()
     {
-        PositionSnapshot board = Diagram.Parse(
-            ".....",
-            ".X...",
-            ".....",
-            "...O.",
-            ".....");
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 1, blackStonesRemoved: 0, whiteStonesRemoved: 0));
+        IGoEngine engine = Load(
+            [
+                ".....",
+                ".X...",
+                ".....",
+                "...O.",
+                ".....",
+            ],
+            consecutivePasses: 1);
 
         Assert.Equal(MoveResult.Success(0), engine.Play(new Point(2, 2)));
 
@@ -643,16 +570,13 @@ public abstract class MoveContractTests
     [Fact]
     public void Pass_MidGame_ChangesOnlyTurnAndPassCount()
     {
-        PositionSnapshot board = EndgameBoard();
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(Endgame, blackStonesRemoved: 4, whiteStonesRemoved: 6);
 
         Assert.Equal(MoveResult.Success(0), engine.Pass());
 
         PositionSnapshot after = engine.Snapshot();
         Assert.Equal(
-            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White),
+            Diagram.Parse(Endgame, Color.White, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6),
             after);
         Assert.False(after.IsOver);
     }
@@ -675,15 +599,12 @@ public abstract class MoveContractTests
     [Fact]
     public void WhiteToMove_PassWithoutColour_PassesForWhite()
     {
-        PositionSnapshot board = EndgameBoard();
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(board, consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.White));
+        IGoEngine engine = Load(Endgame, Color.White, blackStonesRemoved: 4, whiteStonesRemoved: 6);
 
         Assert.Equal(MoveResult.Success(0), engine.Pass());
 
         Assert.Equal(
-            WithState(board, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6, toMove: Color.Black),
+            Diagram.Parse(Endgame, Color.Black, consecutivePasses: 1, blackStonesRemoved: 4, whiteStonesRemoved: 6),
             engine.Snapshot());
     }
 
@@ -733,11 +654,9 @@ public abstract class MoveContractTests
     [InlineData("Pass with colour")]
     public void LoadedGameOver_EveryTurnIsRejected(string call)
     {
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(EndgameBoard(), consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(Endgame, consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6);
 
-        AssertRejected(engine, call, MoveStatus.GameOver);
+        AssertRejected(engine, () => Call(engine, call), MoveStatus.GameOver);
     }
 
     // Rule 8: see LoadedGameOver_EveryTurnIsRejected; here the game ends through two real passes.
@@ -751,13 +670,11 @@ public abstract class MoveContractTests
     [InlineData("Pass with colour")]
     public void GameEndedByTwoPasses_EveryTurnIsRejected(string call)
     {
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(EndgameBoard(), consecutivePasses: 0, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(Endgame, blackStonesRemoved: 4, whiteStonesRemoved: 6);
         Assert.Equal(MoveResult.Success(0), engine.Pass());
         Assert.Equal(MoveResult.Success(0), engine.Pass());
 
-        AssertRejected(engine, call, MoveStatus.GameOver);
+        AssertRejected(engine, () => Call(engine, call), MoveStatus.GameOver);
     }
 
     // Rule 1: there are only two players. IGoEngine: an invalid argument throws before any rule
@@ -769,9 +686,8 @@ public abstract class MoveContractTests
     [InlineData(3, 2)]
     public void PassUndefinedColour_Throws(int color, int consecutivePasses)
     {
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(EndgameBoard(), consecutivePasses, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(
+            Endgame, consecutivePasses: consecutivePasses, blackStonesRemoved: 4, whiteStonesRemoved: 6);
         PositionSnapshot before = engine.Snapshot();
 
         Assert.Throws<ArgumentOutOfRangeException>(() => engine.Pass((Color)color));
@@ -784,9 +700,7 @@ public abstract class MoveContractTests
     [InlineData(3)]
     public void PlayUndefinedColour_AfterGameOver_Throws(int color)
     {
-        IGoEngine engine = CreateEngine(
-            RuleSet.CreateForTests(5),
-            WithState(EndgameBoard(), consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6));
+        IGoEngine engine = Load(Endgame, consecutivePasses: 2, blackStonesRemoved: 4, whiteStonesRemoved: 6);
         PositionSnapshot before = engine.Snapshot();
 
         Assert.Throws<ArgumentOutOfRangeException>(() => engine.Play(new Point(3, 3), (Color)color));
