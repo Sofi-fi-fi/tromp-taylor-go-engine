@@ -154,6 +154,23 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(x, y), MoveStatus.OutOfBounds);
     }
 
+    // Rule 1: the grid of a public size N has points 0..N-1 on each axis, so (N-1, N-1) is a point
+    // and (N, 0) and (0, N) are not. On the smallest and largest public sizes this rejects an
+    // off-by-one bound (<= N, or < N-1) and a bound of RuleSet.MaxSize instead of the board's size
+    // (on 9x9 it would accept (9, 0)).
+    [Theory]
+    [InlineData(9)]
+    [InlineData(19)]
+    public void PublicSize_LastPointIsOk_FirstOutsideIsOutOfBounds(int size)
+    {
+        IGoEngine engine = CreateEngine(RuleSet.Create(size));
+
+        AssertRejected(engine, new Point(size, 0), MoveStatus.OutOfBounds);
+        AssertRejected(engine, new Point(0, size), MoveStatus.OutOfBounds);
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(size - 1, size - 1)));
+        Assert.Equal(PointState.Black, engine.Snapshot()[new Point(size - 1, size - 1)]);
+    }
+
     // Rule 7: a move colours an empty point, so any stone, own or opponent, blocks it.
     [Theory]
     [InlineData(1, 1)]
