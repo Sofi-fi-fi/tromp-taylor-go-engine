@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using GoEngine.Core;
 
 namespace GoEngine.Reference;
@@ -11,6 +12,12 @@ public sealed class ReferenceEngine : IGoEngine
     private int _consecutivePasses;
     private int _blackStonesRemoved;
     private int _whiteStonesRemoved;
+
+    // Rule 6: every grid colouring so far, the current one included (so a single-stone suicide, which
+    // leaves the current colouring, is Superko), oldest first. Kept whole rather than hashed so the
+    // oracle cannot share Core's collision risk. Immutable, so a saved earlier state keeps its own
+    // history and undo can restore it by reference instead of removing entries.
+    private ImmutableList<Grid> _history;
 
     /// <summary>Starts a game on an empty board with Black to move.</summary>
     public ReferenceEngine(RuleSet rules)
@@ -46,6 +53,10 @@ public sealed class ReferenceEngine : IGoEngine
         _consecutivePasses = position.ConsecutivePasses;
         _blackStonesRemoved = position.BlackStonesRemoved;
         _whiteStonesRemoved = position.WhiteStonesRemoved;
+
+        // Rule 5 starts from an empty grid; a loaded position takes its place as the first colouring
+        // (project decision 3.1), since its real earlier colourings are unknown.
+        _history = [grid];
     }
 
     // Rule 5: without a colour the player to move plays.
@@ -93,6 +104,16 @@ public sealed class ReferenceEngine : IGoEngine
             return MoveResult.Rejected(MoveStatus.Suicide);
         }
 
+        // Rule 6: the colouring is judged after both clearings of rule 7. Comment 6: positional, so
+        // only colourings are compared, not the player to move or removed counters. Checked after
+        // Suicide, as IGoEngine orders them.
+        if (_history.Any(afterOwn.SameColouring))
+        {
+            return MoveResult.Rejected(MoveStatus.Superko);
+        }
+
+        _history = _history.Add(afterOwn);
+
         _grid = afterOwn;
         if (color == Color.Black)
         {
@@ -134,7 +155,8 @@ public sealed class ReferenceEngine : IGoEngine
             return MoveResult.Rejected(MoveStatus.GameOver);
         }
 
-        // Rule 6: a pass colours nothing, so the grid and removed counters stay.
+        // Rule 6: a pass colours nothing, so the grid, removed counters and history stay; its colouring
+        // is already in the history and a pass is never a superko violation.
         _consecutivePasses++;
 
         // Rule 5 and IGoEngine: the turn goes to the opposite of the colour that passed.

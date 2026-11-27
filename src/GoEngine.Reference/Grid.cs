@@ -78,6 +78,14 @@ internal sealed class Grid
         return Chain(p).SelectMany(Neighbours).Where(n => this[n] == PointState.Empty).ToHashSet();
     }
 
+    // Rule 6: a move may not repeat an earlier grid colouring, so whole colourings are compared.
+    // Not Equals/GetHashCode: grids are never used as keys, and a named method keeps the comparison
+    // visibly about colouring only.
+    public bool SameColouring(Grid other)
+    {
+        return Size == other.Size && _points.AsSpan().SequenceEqual(other._points);
+    }
+
     public Grid With(Point p, PointState state)
     {
         PointState[] points = (PointState[])_points.Clone();
