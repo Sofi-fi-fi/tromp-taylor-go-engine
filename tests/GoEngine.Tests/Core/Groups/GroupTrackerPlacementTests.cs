@@ -220,6 +220,38 @@ public class GroupTrackerPlacementTests
         Assert.Equal(largeRoot, tracker.Root(tracker.Board.IndexOf(small)));
     }
 
+    // Chain A is 3 + 3 + 1 = 7 stones; the stone at (3, 3) completes chain C (5 + 1 = 6) and then joins A.
+    // Catches: Union adding 1 instead of the smaller chain's size, which records A as 5.
+    [Fact]
+    public void Merge_RootIsTheLargerChainsRoot_WhenItsSizeCameFromEarlierMerges()
+    {
+        //   . . . . . . .
+        //   C . . . . . .
+        //   C . . . . . .
+        //   C C C ? A A A
+        //   . . . . A . .
+        //   . . . . A A A
+        //   . . . . . . .
+        GroupTracker tracker = new(7);
+        foreach ((int x, int y) in new[] { (4, 3), (5, 3), (6, 3), (4, 5), (5, 5), (6, 5), (4, 4) })
+        {
+            Place(tracker, Color.Black, x, y);
+        }
+
+        foreach ((int x, int y) in new[] { (0, 1), (0, 2), (0, 3), (1, 3), (2, 3) })
+        {
+            Place(tracker, Color.Black, x, y);
+        }
+
+        int rootA = Root(tracker, 4, 3);
+
+        // (3, 3) meets C on its left before A on its right, so C (6) and A (7) are compared last.
+        Place(tracker, Color.Black, 3, 3);
+
+        Assert.Equal(rootA, Root(tracker, 3, 3));
+        Assert.Equal(rootA, Root(tracker, 0, 1));
+    }
+
     [Fact]
     public void PlacingOnOccupiedPoint_Throws()
     {

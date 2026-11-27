@@ -85,6 +85,26 @@ public abstract class UndoContractTests : EngineContractTests
     }
 
     // Rule 7 and IGoEngine.
+    // Catches: an undo that restores the colouring but not the chain data of a re-used freed point.
+    [Fact]
+    public void UndoTwice_AfterCaptureAndPlayOnFreedPoint_RestoresStateBeforeCapture()
+    {
+        IGoEngine engine = Load(
+            ".XX..",
+            "XOOX.",
+            ".X...",
+            ".....",
+            ".....");
+        EngineState before = CaptureState(engine);
+        Assert.Equal(MoveResult.Success(2), engine.Play(new Point(2, 2)));
+        Assert.Equal(MoveResult.Success(0), engine.Play(new Point(1, 1)));
+
+        Assert.True(engine.Undo());
+        Assert.True(engine.Undo());
+        AssertSameState(before, engine);
+    }
+
+    // Rule 7 and IGoEngine.
     [Fact]
     public void UndoSelfCapture_RestoresOwnStonesAndCounter()
     {
