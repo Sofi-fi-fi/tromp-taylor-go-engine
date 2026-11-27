@@ -5,8 +5,7 @@ using Xunit;
 
 namespace GoEngine.Tests.Support;
 
-// Design §6: properties run with a fixed FsCheck seed, so a run is reproducible and every
-// mutant sees the same inputs.
+// Design §6: properties run with a fixed FsCheck seed.
 public class SeededPropertyTests
 {
     // The inputs the attribute's run must see: the same generator under the same seed.
@@ -14,7 +13,6 @@ public class SeededPropertyTests
 
     private static int _attributeCalls;
 
-    // Rejects: a seed that does not fix the generator, so two runs see different inputs.
     [Fact]
     public void SameSeed_TwoRuns_SeeTheSameInputs()
     {
@@ -25,16 +23,14 @@ public class SeededPropertyTests
         Assert.Equal(first, second);
     }
 
-    // Guards the test above: it would pass vacuously if the generator ignored the seed and
-    // always produced the same values.
+    // Catches: a generator that ignores the seed, which would make the test above pass vacuously.
     [Fact]
     public void DifferentSeed_SeesDifferentInputs()
     {
         Assert.NotEqual(Inputs(SeededPropertyAttribute.Seed), Inputs(SeededPropertyAttribute.Seed + 1));
     }
 
-    // Rejects: an attribute whose Replay is ignored or not set (FsCheck then picks a random
-    // seed), or a MaxTest larger than configured (the index would run past the expected list).
+    // Catches: an ignored Replay (FsCheck then picks a random seed).
     [SeededProperty]
     public void Attribute_RunsWithTheFixedSeed(int[] xs)
     {
@@ -44,7 +40,6 @@ public class SeededPropertyTests
         Assert.Equal(ExpectedInputs.Value[call], Format(xs));
     }
 
-    // Rejects: a parser that ignores FSCHECK_MAX_TEST or silently falls back on a typo.
     [Theory]
     [InlineData(null, SeededPropertyAttribute.DefaultMaxTest)]
     [InlineData("", SeededPropertyAttribute.DefaultMaxTest)]

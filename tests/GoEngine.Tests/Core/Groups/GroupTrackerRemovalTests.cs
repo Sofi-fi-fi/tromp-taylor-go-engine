@@ -4,17 +4,15 @@ using static GoEngine.Tests.Core.Groups.TrackerHelpers;
 
 namespace GoEngine.Tests.Core.Groups;
 
-// Design §4 "GroupTracker": removing a whole chain on capture. Expected chains and liberties are
-// written out by hand, so every test checks design §5: union-find chains and liberties equal a
-// full flood fill.
+// Design §5: union-find chains and liberties equal a full flood fill (expected sets by hand).
 public class GroupTrackerRemovalTests
 {
-    // Layout for most tests: a white chain W with black chains around it.
+    // White chain W; A, B and C touch it, D does not.
     //   . . . . .
-    //   . A A . .      A touches W at (1, 2) and (2, 2)
-    //   C W W W .      C touches W at (1, 2)
-    //   . . . B .      B touches W at (3, 2)
-    //   D . . . .      D does not touch W
+    //   . A A . .
+    //   C W W W .
+    //   . . . B .
+    //   D . . . .
     private static GroupTracker Surrounded()
     {
         GroupTracker tracker = new(5);
@@ -29,8 +27,6 @@ public class GroupTrackerRemovalTests
         return tracker;
     }
 
-    // Rejects: removing only the given stone or only the root, or leaving the chain's liberty
-    // set reachable from a freed point.
     [Fact]
     public void RemovingChain_EmptiesAllItsPoints()
     {
@@ -48,10 +44,7 @@ public class GroupTrackerRemovalTests
         }
     }
 
-    // Each adjacent chain is updated once even when it touches several removed stones (A touches
-    // two). Rejects: giving every removed point to every adjacent chain (A would get (3, 2)),
-    // a liberty counter raised once per touching stone, or freeing points for chains that do
-    // not touch them (D).
+    // Catches: every removed point given to every adjacent chain (A must not get (3, 2)), or to D.
     [Fact]
     public void RemovingChain_GivesEachAdjacentOpponentChainExactlyTheFreedPointsItTouches()
     {
@@ -65,13 +58,10 @@ public class GroupTrackerRemovalTests
         AssertPoints(tracker, [new(0, 3), new(1, 4)], Liberties(tracker, 0, 4));
     }
 
-    // Rejects: a removal that walks past the chain into another ring, or clears stones by
-    // colour, so the other chain of the same colour would also be affected.
     [Fact]
     public void RemovingOneOfTwoChains_LeavesTheOtherIntact()
     {
         //   W W X W W
-        //   . . . . .
         GroupTracker tracker = new(5);
         Place(tracker, Color.White, 0, 0);
         Place(tracker, Color.White, 1, 0);
@@ -90,8 +80,7 @@ public class GroupTrackerRemovalTests
         AssertPoints(tracker, [new(1, 0), new(2, 1)], Liberties(tracker, 2, 0));
     }
 
-    // Rejects: stale parent, ring or liberty data left at freed points, which would make a new
-    // stone appear joined to removed stones or start with the removed chain's liberties.
+    // Catches: stale parent, ring or liberty data left at freed points.
     [Fact]
     public void AfterRemoval_PlacingOnFreedPointsWorksNormally()
     {
@@ -114,7 +103,6 @@ public class GroupTrackerRemovalTests
         AssertPoints(tracker, [new(3, 2), new(2, 3)], Liberties(tracker, 2, 2));
     }
 
-    // Rejects: a removal that silently does nothing (or corrupts state) for an empty point.
     [Fact]
     public void RemovingAtEmptyPoint_Throws()
     {

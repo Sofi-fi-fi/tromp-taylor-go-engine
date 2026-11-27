@@ -50,8 +50,7 @@ public abstract class MoveContractTests : EngineContractTests
         };
     }
 
-    // Rule 5: Black moves first on an empty grid, then the turn alternates.
-    // Rule 7: a move colours an empty point; nothing is cleared here.
+    // Rules 5 and 7.
     [Fact]
     public void EmptyBoard_PlaysBlackStone_TurnGoesToWhite()
     {
@@ -73,7 +72,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(0, after.WhiteStonesRemoved);
     }
 
-    // Rule 5: players alternate, so without a colour the second move is White's.
+    // Rule 5.
     [Fact]
     public void PlayWithoutColour_UsesPlayerToMove()
     {
@@ -93,8 +92,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(Color.Black, after.ToMove);
     }
 
-    // Rule 7: a move colours a point the mover's colour. IGoEngine: an explicit colour may repeat,
-    // and the turn goes to the opposite of the colour that moved, not of the previous player to move.
+    // Rule 7 and IGoEngine.
     [Fact]
     public void ExplicitBlackTwice_IsAccepted_TurnGoesToWhiteEachTime()
     {
@@ -116,7 +114,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(Color.White, after.ToMove);
     }
 
-    // Rule 7 and IGoEngine: White may move first with an explicit colour; the turn then goes to Black.
+    // Rule 7 and IGoEngine.
     [Fact]
     public void ExplicitWhiteOnFreshBoard_TurnGoesToBlack()
     {
@@ -135,8 +133,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(Color.Black, after.ToMove);
     }
 
-    // Rule 1: points exist only on the grid. IGoEngine: such a point is rejected, not thrown,
-    // and a rejection changes nothing.
+    // Rule 1 and IGoEngine.
     [Theory]
     [InlineData(-1, 0)]
     [InlineData(0, -1)]
@@ -154,10 +151,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(x, y), MoveStatus.OutOfBounds);
     }
 
-    // Rule 1 / comment 1: the grid of a public size N has points 0..N-1 on each axis, so (N-1, N-1)
-    // is a point and (N, 0) and (0, N) are not. On the smallest and largest public sizes this rejects
-    // an off-by-one bound (<= N, or < N-1) and a bound of RuleSet.MaxSize instead of the board's size
-    // (on 9x9 it would accept (9, 0)).
+    // Rule 1.
+    // Catches: an off-by-one bound, or RuleSet.MaxSize instead of the board size (9x9 would accept (9, 0)).
     [Theory]
     [InlineData(9)]
     [InlineData(19)]
@@ -171,7 +166,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(PointState.Black, engine.Snapshot()[new Point(size - 1, size - 1)]);
     }
 
-    // Rule 7: a move colours an empty point, so any stone, own or opponent, blocks it.
+    // Rule 7.
     [Theory]
     [InlineData(1, 1)]
     [InlineData(2, 1)]
@@ -187,8 +182,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(x, y), MoveStatus.Occupied);
     }
 
-    // Rule 7: after colouring, the opponent colour is cleared; the freed point becomes a liberty of
-    // every string next to it, not only the mover's. Rejects returning liberties only to the mover's chain.
+    // Rule 7.
+    // Catches: liberties returned only to the mover's chain.
     [Fact]
     public void CaptureInMiddle_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -214,8 +209,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(2, 2), new(1, 3), new(3, 3), new(2, 4)], engine.GetLiberties(new Point(2, 3)));
     }
 
-    // Rule 7: clearing on the edge, where the captured stone has only three neighbours; both other
-    // Black strings next to it gain the freed point. Rejects returning liberties only to the mover's chain.
+    // Rule 7.
     [Fact]
     public void CaptureOnEdge_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -240,8 +234,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(2, 0), new(1, 1), new(3, 1), new(2, 2)], engine.GetLiberties(new Point(2, 1)));
     }
 
-    // Rule 7: clearing in the corner, where the captured stone has only two neighbours; the other
-    // Black stone next to it gains the freed point. Rejects returning liberties only to the mover's chain.
+    // Rule 7.
     [Fact]
     public void CaptureInCorner_RemovesStone_CapturingStoneGainsLiberty()
     {
@@ -265,9 +258,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(0, 0), new(2, 0), new(1, 1)], engine.GetLiberties(new Point(1, 0)));
     }
 
-    // Rule 7: clearing the opponent colour empties every opponent string that does not reach empty,
-    // so one move removes both strings and Captured counts all their stones. Every Black string next
-    // to a cleared point gains it. Rejects returning liberties only to the mover's chain.
+    // Rule 7.
     [Fact]
     public void CaptureOfTwoChains_CapturedIsSumOfBoth()
     {
@@ -293,10 +284,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(3, 0), new(4, 1)], engine.GetLiberties(new Point(4, 0)));
     }
 
-    // Rule 7 and comment 7: the opponent colour is cleared before the mover's own, so a stone with
-    // no empty neighbour that captures is not suicide: rejected neither without suicide allowed
-    // nor self-captured with it, since the own chain never lacks liberties. The other Black strings
-    // next to the cleared point gain it too. Rejects returning liberties only to the mover's chain.
+    // Rule 7 and comment 7.
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -327,12 +315,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(1, 1), new(0, 2), new(1, 3)], engine.GetLiberties(new Point(1, 2)));
     }
 
-    // Rule 7: the played stone joins the Black chain (0,0)-(1,0), whose only liberty it fills, and
-    // touches no empty point; clearing White's (0,1) gives the merged chain its liberty back, so the
-    // move stands. Unlike CaptureBeforeSuicide_PlayedStoneStays the freed chain has several stones.
-    // Rejects judging suicide, or keeping the merged chain's liberties, from the board before the
-    // capture: (0,0) is not next to the played point, yet its chain must gain (0,1); so must the
-    // separate Black stone (0,2). Rejects returning liberties only to the mover's chain.
+    // Rule 7.
+    // Catches: suicide or the merged chain's liberties judged on the board before the capture.
     [Fact]
     public void CaptureFreesMergedOwnChain_MoveStands()
     {
@@ -357,10 +341,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(0, 1), new(0, 3)], engine.GetLiberties(new Point(0, 2)));
     }
 
-    // Rule 7: every opponent string without liberties is cleared, whichever side of the played stone
-    // it lies on. Here four White stones are captured above, left, right and below. Rejects a capture
-    // loop that skips a direction: no other test captures downward. Every Black stone next to a
-    // cleared point gains it. Rejects returning liberties only to the mover's chain.
+    // Rule 7.
+    // Catches: a capture loop that skips a direction; no other test captures downward.
     [Fact]
     public void CaptureInFourDirections_RemovesAllFourStones()
     {
@@ -391,10 +373,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(2, 3), new(1, 4), new(3, 4)], engine.GetLiberties(new Point(2, 4)));
     }
 
-    // Rule 3: stones of one colour connected orthogonally form one string, so a stone placed between
-    // four separate Black strings (above, below, left and right) joins all of them into one string of
-    // nine stones whose liberties are every empty point next to any of them. Querying from each arm
-    // checks that no arm stays a separate string. Rejects a merge loop that skips one neighbour.
+    // Rule 3.
     [Fact]
     public void MoveJoiningChainsOnAllFourSides_MergesThemIntoOneChain()
     {
@@ -423,8 +402,7 @@ public abstract class MoveContractTests : EngineContractTests
         }
     }
 
-    // Comment 7: a move that would clear the mover's own colour is suicide; comment 4: no string
-    // without liberties may remain, so with suicide not allowed the move is rejected.
+    // Comments 4 and 7.
     [Fact]
     public void SingleStoneSuicide_NotAllowed_IsRejected()
     {
@@ -438,7 +416,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(0, 0), MoveStatus.Suicide);
     }
 
-    // Comment 7 and comment 4: joining an own string and leaving it without liberties is suicide too.
+    // Comments 4 and 7.
     [Fact]
     public void MultiStoneSuicide_NotAllowed_IsRejected()
     {
@@ -452,11 +430,8 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, new Point(1, 0), MoveStatus.Suicide);
     }
 
-    // Rule 7: with suicide allowed, the mover's own string is cleared, the played stone included,
-    // and the turn passes. Only multi-stone strings: a single-stone suicide recreates the current
-    // colouring and is Superko (SuperkoContractTests.SingleStoneSuicide_IsSuperkoIfAllowedElseSuicide).
-    // The White strings next to the cleared points gain them. Rejects returning liberties only to the
-    // mover's chain.
+    // Rule 7.
+    // Multi-stone only: a single-stone suicide recreates the coloring and is Superko.
     [Fact]
     public void SuicideInCorner_Allowed_SelfCapturesChain()
     {
@@ -482,9 +457,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(0, 0), new(1, 0), new(2, 1), new(0, 2), new(1, 2)], engine.GetLiberties(new Point(0, 1)));
     }
 
-    // Rule 7: see SuicideInCorner_Allowed_SelfCapturesChain; the played stone joins two own stones,
-    // and all four White strings gain the cleared points. Rejects returning liberties only to the
-    // mover's chain.
+    // Rule 7.
     [Fact]
     public void SuicideInMiddle_Allowed_SelfCapturesChain()
     {
@@ -515,9 +488,8 @@ public abstract class MoveContractTests : EngineContractTests
             engine.GetLiberties(new Point(2, 2)));
     }
 
-    // Rule 7 and IGoEngine: captured stones are added to the opponent's removed counter; the
-    // mover's counter does not change. Different non-zero start values catch assignment instead of
-    // addition and a swapped counter.
+    // Rule 7 and IGoEngine.
+    // Catches: assignment instead of addition, or a swapped counter (non-zero start values).
     [Theory]
     [InlineData(Color.Black, 4, 9)]
     [InlineData(Color.White, 7, 6)]
@@ -541,9 +513,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(white, after.WhiteStonesRemoved);
     }
 
-    // Rule 5 and rule 7: without a colour White, the player to move, captures; Black's counter grows
-    // and the turn goes to Black. Every White string next to a cleared point gains it. Rejects
-    // returning liberties only to the mover's chain.
+    // Rules 5 and 7.
     [Fact]
     public void WhiteToMove_PlayWithoutColour_CapturesForWhite()
     {
@@ -577,7 +547,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertPoints([new(3, 0), new(4, 1)], engine.GetLiberties(new Point(4, 0)));
     }
 
-    // Rule 7 and IGoEngine: self-captured stones are added to the mover's own removed counter.
+    // Rule 7 and IGoEngine.
     [Theory]
     [InlineData(Color.Black, 7, 6)]
     [InlineData(Color.White, 4, 9)]
@@ -602,7 +572,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(white, after.WhiteStonesRemoved);
     }
 
-    // Rule 8: only consecutive passes end the game, so a move resets the count.
+    // Rule 8.
     [Fact]
     public void AcceptedPlay_ResetsConsecutivePasses()
     {
@@ -621,8 +591,8 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(0, engine.Snapshot().ConsecutivePasses);
     }
 
-    // Rule 1: there are only two players. IGoEngine: an invalid argument throws before any rule
-    // is checked, so a point outside the board does not turn it into OutOfBounds.
+    // Rule 1 and IGoEngine.
+    // Catches: an off-board point reported as OutOfBounds before the colour is checked.
     [Theory]
     [InlineData(0, 0, 0)]
     [InlineData(3, 0, 0)]
@@ -642,7 +612,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(before, engine.Snapshot());
     }
 
-    // IGoEngine: returned sets are copies owned by the caller, so a later move does not change them.
+    // IGoEngine.
     [Fact]
     public void LibertiesTakenBeforeMove_AreNotChangedByMove()
     {
@@ -660,8 +630,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.DoesNotContain(new Point(1, 0), engine.GetLiberties(new Point(1, 1)));
     }
 
-    // Rule 6: a turn is either a pass or a move; a pass colours nothing, so the board and both
-    // removed counters stay. Rule 5: the turn alternates. Rule 8: the pass starts a run of passes.
+    // Rules 5, 6 and 8.
     [Fact]
     public void Pass_MidGame_ChangesOnlyTurnAndPassCount()
     {
@@ -676,7 +645,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.False(after.IsOver);
     }
 
-    // Rule 6 and IGoEngine: an explicit colour may pass; the turn goes to the opposite of that colour.
+    // Rule 6 and IGoEngine.
     [Fact]
     public void PassWhiteOnFreshBoard_TurnGoesToBlack()
     {
@@ -689,8 +658,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(1, after.ConsecutivePasses);
     }
 
-    // Rule 5 and IGoEngine: without a colour the player to move passes, here White; mirrors
-    // WhiteToMove_PlayWithoutColour_CapturesForWhite.
+    // Rule 5 and IGoEngine.
     [Fact]
     public void WhiteToMove_PassWithoutColour_PassesForWhite()
     {
@@ -703,7 +671,7 @@ public abstract class MoveContractTests : EngineContractTests
             engine.Snapshot());
     }
 
-    // Rule 8: the game ends after two consecutive passes. IGoEngine: of any colours.
+    // Rule 8 and IGoEngine.
     [Theory]
     [InlineData(Color.Black, Color.White)]
     [InlineData(Color.Black, Color.Black)]
@@ -722,7 +690,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(2, after.ConsecutivePasses);
     }
 
-    // Rule 8: only consecutive passes end the game, so a move between them breaks the run.
+    // Rule 8.
     [Fact]
     public void PassPlayPass_DoesNotEndGame()
     {
@@ -737,8 +705,8 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(1, after.ConsecutivePasses);
     }
 
-    // Rule 8: after the game has ended there are no more turns. IGoEngine: GameOver is checked
-    // first, before OutOfBounds, Occupied and Suicide, and a rejection changes nothing.
+    // Rule 8 and IGoEngine.
+    // Catches: OutOfBounds, Occupied or Suicide reported before GameOver.
     [Theory]
     [InlineData("Play empty")]
     [InlineData("Play occupied")]
@@ -754,7 +722,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, () => Call(engine, call), MoveStatus.GameOver);
     }
 
-    // Rule 8: see LoadedGameOver_EveryTurnIsRejected; here the game ends through two real passes.
+    // Rule 8.
     [Theory]
     [InlineData("Play empty")]
     [InlineData("Play occupied")]
@@ -772,8 +740,7 @@ public abstract class MoveContractTests : EngineContractTests
         AssertRejected(engine, () => Call(engine, call), MoveStatus.GameOver);
     }
 
-    // Rule 1: there are only two players. IGoEngine: an invalid argument throws before any rule
-    // is checked, also after the game has ended.
+    // Rule 1 and IGoEngine.
     [Theory]
     [InlineData(0, 0)]
     [InlineData(3, 0)]
@@ -789,7 +756,7 @@ public abstract class MoveContractTests : EngineContractTests
         Assert.Equal(before, engine.Snapshot());
     }
 
-    // IGoEngine: see PassUndefinedColour_Throws; an undefined colour is not reported as GameOver.
+    // IGoEngine.
     [Theory]
     [InlineData(0)]
     [InlineData(3)]

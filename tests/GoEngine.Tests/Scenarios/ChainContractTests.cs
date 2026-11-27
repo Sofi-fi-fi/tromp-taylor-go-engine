@@ -6,7 +6,7 @@ namespace GoEngine.Tests.Scenarios;
 
 public abstract class ChainContractTests : EngineContractTests
 {
-    // Comment 3: only stones form strings, so an empty point has neither a chain nor liberties.
+    // Comment 3.
     [Fact]
     public void EmptyPoint_HasEmptyChainAndNoLiberties()
     {
@@ -19,7 +19,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Empty(engine.GetLiberties(new Point(0, 0)));
     }
 
-    // Comment 3: the liberties of a lone stone are its empty orthogonal neighbours on the board.
+    // Comment 3.
     [Theory]
     [InlineData(2, 2, new[] { 2, 1, 1, 2, 3, 2, 2, 3 })]
     [InlineData(2, 0, new[] { 1, 0, 3, 0, 2, 1 })]
@@ -34,7 +34,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints(Points(liberties), engine.GetLiberties(new Point(x, y)));
     }
 
-    // Rule 3 and comment 3: stones of one colour connected orthogonally form one string.
+    // Rule 3 and comment 3.
     [Fact]
     public void OrthogonalNeighbours_FormOneChain()
     {
@@ -51,7 +51,7 @@ public abstract class ChainContractTests : EngineContractTests
             engine.GetLiberties(new Point(1, 1)));
     }
 
-    // Rule 3: adjacency is orthogonal only, so diagonal stones are separate strings.
+    // Rule 3.
     [Fact]
     public void DiagonalNeighbours_AreSeparateChains()
     {
@@ -66,7 +66,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(1, 0), new(0, 1), new(2, 1), new(1, 2)], engine.GetLiberties(new Point(1, 1)));
     }
 
-    // Comment 3: a string and its liberties do not depend on which of its stones is queried.
+    // Comment 3.
     [Theory]
     [InlineData(0, 0)]
     [InlineData(1, 0)]
@@ -82,7 +82,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(2, 0), new(0, 1), new(2, 1), new(1, 2)], engine.GetLiberties(new Point(x, y)));
     }
 
-    // Comment 3: liberties are a set of points; (2,0) touches both (1,0) and (2,1).
+    // Comment 3.
     [Fact]
     public void SharedLiberty_IsCountedOnce()
     {
@@ -98,7 +98,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(0, 0), new(2, 0), new(0, 1), new(3, 1), new(1, 2), new(2, 2)], liberties);
     }
 
-    // Rule 3 and comment 3: a string reaches only its own colour; liberties are empty points only.
+    // Rule 3 and comment 3.
     [Fact]
     public void AdjacentOpponentStones_AreNeitherMembersNorLiberties()
     {
@@ -113,7 +113,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(0, 0), new(2, 0)], engine.GetLiberties(new Point(1, 0)));
     }
 
-    // Rule 3: a path through an empty point does not connect stones into one string.
+    // Rule 3.
     [Fact]
     public void SameColourChainsSeparatedByEmptyPoint_StaySeparate()
     {
@@ -127,7 +127,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(1, 0), new(0, 1)], engine.GetLiberties(new Point(0, 0)));
     }
 
-    // Comment 3: an empty point inside the string is reached by it, so it is a liberty.
+    // Comment 3.
     [Fact]
     public void ChainAroundEye_EyeIsLiberty()
     {
@@ -146,7 +146,7 @@ public abstract class ChainContractTests : EngineContractTests
             engine.GetLiberties(new Point(1, 2)));
     }
 
-    // Comment 3: strings are defined for both colours alike.
+    // Comment 3.
     [Fact]
     public void WhiteChain_BehavesLikeBlack()
     {
@@ -163,7 +163,7 @@ public abstract class ChainContractTests : EngineContractTests
             engine.GetLiberties(new Point(2, 2)));
     }
 
-    // Rule 3: reachability spans the whole board; one empty point is the only liberty.
+    // Rule 3.
     [Fact]
     public void LargestBoard_AllBlackButOnePoint_ChainCoversBoard()
     {
@@ -178,7 +178,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(9, 9)], engine.GetLiberties(new Point(18, 18)));
     }
 
-    // Comment 3 on the smallest test board.
+    // Comment 3.
     [Fact]
     public void SmallestBoard_SingleStone()
     {
@@ -190,7 +190,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(1, 0), new(0, 1)], engine.GetLiberties(new Point(0, 0)));
     }
 
-    // Rule 1: points exist only on the grid.
+    // Rule 1.
     [Theory]
     [InlineData(-1, 0)]
     [InlineData(0, -1)]
@@ -206,7 +206,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Throws<ArgumentOutOfRangeException>(() => engine.GetChain(new Point(x, y)));
     }
 
-    // Rule 1: points exist only on the grid.
+    // Rule 1.
     [Theory]
     [InlineData(-1, 0)]
     [InlineData(0, -1)]
@@ -222,7 +222,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Throws<ArgumentOutOfRangeException>(() => engine.GetLiberties(new Point(x, y)));
     }
 
-    // Rule 2: a position is the colouring of every point; loading keeps it and the game state as given.
+    // Rule 2.
     [Fact]
     public void Snapshot_AfterLoading_EqualsLoadedPosition()
     {
@@ -241,7 +241,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal(position, engine.Snapshot());
     }
 
-    // Rule 1: the grid size is fixed by the rules, so a position of another size cannot be loaded.
+    // Rule 1.
     [Fact]
     public void Loading_SizeDifferentFromRules_Throws()
     {
@@ -257,7 +257,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
-    // Comment 4: strings without liberties cannot exist on the board.
+    // Comment 4.
     [Fact]
     public void Loading_BlackChainWithoutLiberties_Throws()
     {
@@ -272,7 +272,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
-    // Comment 4: strings without liberties cannot exist on the board.
+    // Comment 4.
     [Fact]
     public void Loading_WhiteChainWithoutLiberties_Throws()
     {
@@ -287,8 +287,8 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
-    // Comment 4: strings without liberties cannot exist on the board. The dead White chain comes
-    // after live Black stones in row-major order, so checking only the first stone is not enough.
+    // Comment 4.
+    // Catches: checking only the first stone in row-major order.
     [Fact]
     public void Loading_DeadMultiStoneChainAfterLiveStones_Throws()
     {
@@ -303,7 +303,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
-    // Comment 4: on a full board no string has a liberty.
+    // Comment 4.
     [Fact]
     public void Loading_FullBoard_Throws()
     {
@@ -318,8 +318,7 @@ public abstract class ChainContractTests : EngineContractTests
         Assert.Equal("position", ex.ParamName);
     }
 
-    // IGoEngine: returned sets are copies owned by the caller, so clearing a mutable result must not
-    // affect the engine; a read-only set cannot be corrupted by the caller.
+    // IGoEngine.
     [Fact]
     public void GetChain_ReturnsCopy()
     {
@@ -336,7 +335,7 @@ public abstract class ChainContractTests : EngineContractTests
         AssertPoints([new(0, 0), new(1, 0)], engine.GetChain(new Point(0, 0)));
     }
 
-    // IGoEngine: returned sets are copies owned by the caller; see GetChain_ReturnsCopy.
+    // IGoEngine.
     [Fact]
     public void GetLiberties_ReturnsCopy()
     {

@@ -3,15 +3,13 @@ using Xunit;
 
 namespace GoEngine.Tests.Core;
 
-// Design §4 "Board": flat array indexed y * size + x, precomputed neighbours, colouring,
-// clone and value equality, sizes 2..19.
+// Design §4 "Board".
 public class BoardTests
 {
     public static TheoryData<int> Sizes => [2, 5, 19];
 
     public static TheoryData<int> SizesWithEdges => [5, 19];
 
-    // Rejects: diagonal neighbours, wrap-around (torus) neighbours, a missing bounds check at a corner.
     [Theory]
     [MemberData(nameof(Sizes))]
     public void Neighbours_OfCorner_AreTheTwoOrthogonalPoints(int size)
@@ -25,7 +23,6 @@ public class BoardTests
         Assert.Equal(Set(new(last - 1, last), new(last, last - 1)), NeighbourPoints(board, new(last, last)));
     }
 
-    // Rejects: an edge point losing a neighbour along the edge or gaining one across it.
     [Theory]
     [MemberData(nameof(SizesWithEdges))]
     public void Neighbours_OfEdge_AreThree(int size)
@@ -40,7 +37,6 @@ public class BoardTests
         Assert.Equal(Set(new(mid - 1, last), new(mid + 1, last), new(mid, last - 1)), NeighbourPoints(board, new(mid, last)));
     }
 
-    // Rejects: a centre point with diagonals (8) or with a side dropped (3).
     [Theory]
     [MemberData(nameof(SizesWithEdges))]
     public void Neighbours_OfCentre_AreFour(int size)
@@ -53,9 +49,7 @@ public class BoardTests
             NeighbourPoints(board, new(mid, mid)));
     }
 
-    // Rejects: a precomputation bug at any single point (e.g. the last row or column), duplicate
-    // entries, or a neighbour index outside the board. Expected sets come from point arithmetic,
-    // not from the board's index layout.
+    // Expected sets come from point arithmetic, not from the board's index layout.
     [Theory]
     [MemberData(nameof(Sizes))]
     public void Neighbours_OfEveryPoint_AreExactlyTheOrthogonalOnBoardPoints(int size)
@@ -75,7 +69,6 @@ public class BoardTests
         }
     }
 
-    // Rejects: an index/point mapping that is not a bijection over the board.
     [Theory]
     [MemberData(nameof(Sizes))]
     public void IndexAndPoint_RoundTrip(int size)
@@ -97,8 +90,7 @@ public class BoardTests
         }
     }
 
-    // Rejects: the transposed layout x * size + y, which still round-trips but disagrees with
-    // PositionSnapshot's p.Y * size + p.X.
+    // Catches: the transposed layout x * size + y, which still round-trips.
     [Fact]
     public void IndexOf_IsRowMajor()
     {
@@ -110,7 +102,6 @@ public class BoardTests
         Assert.Equal(2 * 5 + 3, board.IndexOf(new Point(3, 2)));
     }
 
-    // Rejects: a board that does not start empty, or a setter that writes to the wrong point.
     [Fact]
     public void Colouring_NewBoardIsEmpty_AndSetChangesOnlyThatPoint()
     {
@@ -127,7 +118,6 @@ public class BoardTests
         }
     }
 
-    // Rejects: a shallow clone that shares the point array with the original.
     [Fact]
     public void Clone_IsEqualAndIndependent()
     {
@@ -145,7 +135,6 @@ public class BoardTests
         Assert.Equal(PointState.Empty, clone[2]);
     }
 
-    // Rejects: reference equality, or a hash code that ignores value equality.
     [Fact]
     public void Equals_SameColouring_IsEqual()
     {
@@ -161,8 +150,6 @@ public class BoardTests
         Assert.Equal(a.GetHashCode(), b.GetHashCode());
     }
 
-    // Rejects: a comparison that skips some points (e.g. an off-by-one loop missing the last one)
-    // or that compares only stone counts.
     [Theory]
     [InlineData(PointState.Black)]
     [InlineData(PointState.White)]
@@ -179,8 +166,6 @@ public class BoardTests
         }
     }
 
-    // Rejects: a comparison of colourings only, under which two empty boards of different sizes,
-    // or Black versus White at the same point, would compare equal.
     [Fact]
     public void Equals_DifferentSizeOrColour_IsNotEqual()
     {
@@ -196,7 +181,6 @@ public class BoardTests
         Assert.False(new Board(3).Equals((object?)null));
     }
 
-    // Rejects: a size range that drifts from RuleSet's test range 2..19.
     [Theory]
     [InlineData(1)]
     [InlineData(20)]
